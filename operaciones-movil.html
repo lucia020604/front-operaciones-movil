@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Operaciones – App Móvil</title>
+<link rel="stylesheet" href="CSS/main.css">
+<link rel="stylesheet" href="CSS/movil.css">
+</head>
+<body>
+
+<div class="movil-fondo">
+  <div class="telefono">
+    <div class="movil-header">
+      <div class="telefono-statusbar telefono-statusbar--claro">
+        <span id="horaStatusBar">--:--</span>
+        <span class="status-iconos">
+          <svg width="15" height="11" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 5c5-5 13-5 18 0M4 8c3.4-3.2 8.6-3.2 12 0M7.2 11c1.7-1.5 3.9-1.5 5.6 0"/><circle cx="10" cy="12.5" r="1"/></svg>
+          <svg width="20" height="11" viewBox="0 0 25 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="20" height="11" rx="2.5"/><rect x="3" y="3" width="14" height="7" rx="1" fill="currentColor" stroke="none"/><path d="M23 4.5v4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+
+      <div class="movil-header-fila">
+        <div class="movil-header-titulos">
+          <div class="movil-header-titulo">Operaciones</div>
+        </div>
+        <!-- Simulación de push (ítem 2): muestra cómo le llegaría esta
+             notificación al celular del operador en tiempo real — ver
+             mostrarSimulacionPush en operaciones-movil.js. -->
+        <button type="button" class="movil-header-campana-btn" onclick="mostrarSimulacionPush()" title="Ver cómo le llegaría la notificación al celular">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
+      </div>
+
+      <!-- Banner de notificación simulada (overlay sobre el status bar,
+           como un push real del sistema) — ver mostrarSimulacionPush. -->
+      <div class="push-sim-banner" id="pushSimBanner">
+        <div class="push-sim-banner-icono">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </div>
+        <div class="push-sim-banner-texto">
+          <div class="push-sim-banner-fila-top">
+            <span class="push-sim-banner-app">Gastos Operativos</span>
+            <span class="push-sim-banner-hora" id="pushSimHora">ahora</span>
+          </div>
+          <div class="push-sim-banner-titulo" id="pushSimTitulo"></div>
+          <div class="push-sim-banner-cuerpo" id="pushSimCuerpo"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="movil-contenido">
+
+      <!-- NOTIFICACIONES DE OLVIDO DE COMIDAS (PROMPT_GASTOS_PENDIENTES_
+           SPRINT4 §2) — oculto si no hay nada que avisar (ver
+           renderNotificacionesOlvidos). Tocar un día abre "Agregar gasto
+           olvidado" en Gastos; la ✕ de cada comida es "No corresponde/no
+           consumí" y deja de avisar esa comida para siempre. -->
+      <div class="olvidos-banner" id="olvidosBanner" style="display:none;">
+        <div class="olvidos-banner-titulo">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span><strong id="olvidosBannerContador">0</strong> gasto(s) olvidado(s)</span>
+        </div>
+        <div id="olvidosBannerLista"></div>
+      </div>
+
+      <!-- JORNADA -->
+      <div class="jornada-box">
+        <div class="jornada-fila-top">
+          <div class="jornada-estado">
+            <span class="jornada-icono" id="jornadaIcono"></span>
+            <span class="jornada-info" id="jornadaEstadoTexto">Jornada no iniciada</span>
+          </div>
+          <span class="jornada-badge" id="jornadaMetaTexto">—</span>
+        </div>
+        <div class="jornada-fila-bottom">
+          <div class="jornada-hora-bloque">
+            <span class="jornada-hora" id="jornadaHoraTexto">—</span>
+            <span class="jornada-hora-caption" id="jornadaHoraCaption">Aún no registrada</span>
+          </div>
+          <button type="button" class="btn-jornada comenzar" id="btnJornada" onclick="abrirModalRegistroJornada()">Comenzar día</button>
+        </div>
+      </div>
+
+      <!-- OPERACIONES ASIGNADAS — un operador puede tener más de una en el
+           mismo día; cada tarjeta se arma en operaciones-movil.js e incluye
+           sus propias acciones (Horario / Asignar Precinto) y, si le falta
+           algún estado por registrar, un campo rápido para el SIGUIENTE
+           estado pendiente (los estados son consecutivos, no se puede
+           registrar uno fuera de orden — ver obtenerSiguienteEstadoPendiente). -->
+      <div class="op-lista-titulo" id="opListaTitulo">Operaciones asignadas</div>
+      <div id="operacionesLista"></div>
+    </div>
+
+    <div class="movil-bottomnav" id="movilBottomnav"></div>
+
+    <!-- MODAL AÑADIR HORA — registro detallado (con comentario y dictado) del
+         mismo siguiente estado pendiente que la tarjeta ya deja registrar
+         rápido; el campo principal cambia de tipo según el estado (fecha y
+         hora, número o texto — ver ESTADOS_OPERACION_MOVIL). -->
+    <div class="modal-overlay movil-modal-overlay" id="modalAnadirHora">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title" id="tituloModalAnadirHora">Añadir Hora</h2>
+          <button class="modal-close" onclick="cancelarAnadirHora()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="movil-form-group">
+            <label class="movil-form-label" id="anadirHoraEtiqueta">Estado</label>
+            <input class="movil-input" id="anadirHoraValor" style="padding-left:14px;">
+          </div>
+          <div class="movil-form-group">
+            <label class="movil-form-label">Comentario</label>
+            <textarea class="movil-input" id="anadirHoraComentario" rows="3" style="height:auto;padding:10px 14px;resize:vertical;overflow-y:hidden;" placeholder="Escribe o dicta un comentario…" oninput="autoAjustarTextareaMovil(this)"></textarea>
+            <div class="dictado-box">
+              <button type="button" class="btn-microfono" id="btnMicrofono" onclick="iniciarDictadoSimulado()">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/></svg>
+              </button>
+              <span class="dictado-texto" id="dictadoTexto">Toca el micrófono para dictar el comentario.</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-guardar" onclick="guardarAnadirHora()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            Guardar
+          </button>
+          <button class="btn-accion btn-cancelar" onclick="cancelarAnadirHora()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL HORARIO -->
+    <div class="modal-overlay movil-modal-overlay" id="modalHorario">
+      <div class="modal modal-lg">
+        <div class="modal-header">
+          <h2 class="modal-title" id="tituloModalHorario">Horario de la Operación</h2>
+          <button class="modal-close" onclick="cerrarModal('modalHorario')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="horario-lock-nota" id="horarioLockNota" style="display:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>Este horario ya fue revisado desde el sistema y no puede modificarse desde la app.</span>
+          </div>
+          <div class="timeline-estados" id="timelineEstados"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-cancelar" onclick="cerrarModal('modalHorario')">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ASIGNAR PRECINTO -->
+    <div class="modal-overlay movil-modal-overlay" id="modalAsignarPrecinto">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title" id="tituloModalAsignarPrecinto">Asignar Precinto</h2>
+          <div class="modal-header-acciones">
+            <button class="modal-close" onclick="cerrarModal('modalAsignarPrecinto')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <p id="asignarPrecintoSinDatos" style="display:none;font-size:10px;color:var(--gray-500);">
+            No tienes precintos asignados.
+          </p>
+          <div id="asignarPrecintoForm">
+            <div class="movil-tab-toggle">
+              <button type="button" class="movil-tab-toggle-btn activo" id="btnTabAsignarUso" onclick="cambiarVistaAsignarPrecinto('uso')">Uso</button>
+              <button type="button" class="movil-tab-toggle-btn scrap" id="btnTabAsignarScrap" onclick="cambiarVistaAsignarPrecinto('scrap')">Scrap</button>
+            </div>
+            <div class="movil-form-group">
+              <label class="movil-form-label">PER</label>
+              <input type="text" class="movil-input" id="asignarPrecintoPer" style="padding-left:14px;" disabled>
+            </div>
+            <div class="movil-form-group">
+              <div class="precinto-cabecera">
+                <label class="movil-form-label" style="margin-bottom:0;">Precinto</label>
+                <button type="button" class="btn-escanear-precinto" onclick="abrirModalEscanearPrecinto()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+                  Escanear
+                </button>
+              </div>
+              <div class="precinto-buscar-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" class="movil-input" id="asignarPrecintoBuscar" placeholder="Buscar precinto…" autocomplete="off" oninput="filtrarChecklistPrecintos(this.value)">
+              </div>
+              <div class="precinto-checklist" id="asignarPrecintoChecklist"></div>
+            </div>
+            <div class="movil-form-group">
+              <label class="movil-form-label">Fecha</label>
+              <input type="date" class="movil-input" id="asignarPrecintoFecha" style="padding-left:14px;">
+            </div>
+            <div class="movil-form-group">
+              <label class="movil-form-label" id="asignarPrecintoObservacionLabel">Observación (opcional)</label>
+              <!-- Chips de motivos frecuentes: solo visibles en la pestaña Scrap
+                   (ver cambiarVistaAsignarPrecinto) — rellenan el campo y se
+                   pueden seguir editando, el texto libre sigue permitido. -->
+              <div class="motivo-chips" id="asignarPrecintoMotivoChips" style="display:none;">
+                <button type="button" class="motivo-chip" onclick="elegirMotivoFrecuente('Dañado')">Dañado</button>
+                <button type="button" class="motivo-chip" onclick="elegirMotivoFrecuente('Mal sellado')">Mal sellado</button>
+                <button type="button" class="motivo-chip" onclick="elegirMotivoFrecuente('Roto al colocar')">Roto al colocar</button>
+                <button type="button" class="motivo-chip" onclick="elegirMotivoFrecuente('Ilegible')">Ilegible</button>
+              </div>
+              <input type="text" class="movil-input" id="asignarPrecintoObservacion" style="padding-left:14px;" maxlength="200" oninput="actualizarContadorObservacion()">
+              <span class="movil-input-contador" id="asignarPrecintoObservacionContador" style="display:none;">0/200</span>
+            </div>
+            <p style="font-size:10px;color:var(--gray-500);margin-top:4px;" id="asignarPrecintoUsados"></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-cancelar" onclick="cerrarModal('modalAsignarPrecinto')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Cancelar
+          </button>
+          <button class="btn-accion btn-guardar" id="btnGuardarAsignarPrecinto" onclick="guardarAsignarPrecinto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ESCANEAR PRECINTO — pide la cámara real del dispositivo (con
+         linterna, para poca iluminación) para leer el código impreso en el
+         precinto. El botón-cámara central decodifica el cuadro actual del
+         video con la BarcodeDetector API nativa del navegador (code_128/
+         qr_code/ean_13/code_39); si el navegador no la soporta, se mantiene
+         la cámara pero se avisa que hay que escribir el código a mano en el
+         buscador de "Asignar Precinto" (ver capturarEscaneoPrecinto). En
+         modo "Único" cada captura cierra el modal al toque; en "Varios" se
+         queda abierto para tomar más y arma la lista a partir de cada toma,
+         "Listo" cierra cuando el operador termina. -->
+    <div class="modal-overlay movil-modal-overlay" id="modalEscanearPrecinto">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title">Escanear Precinto</h2>
+          <button class="modal-close" onclick="cerrarModalEscanearPrecinto()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body" style="padding:0;gap:0;">
+          <div class="movil-tab-toggle" id="escanerModoToggle" style="margin:10px 14px 0;">
+            <button type="button" class="movil-tab-toggle-btn" id="btnEscanerModoUnico" onclick="cambiarModoEscaner('unico')">Único</button>
+            <button type="button" class="movil-tab-toggle-btn activo" id="btnEscanerModoVarios" onclick="cambiarModoEscaner('varios')">Varios</button>
+          </div>
+          <div class="escaner-camara-wrap" style="margin-top:10px;">
+            <video id="escanerVideo" autoplay playsinline muted></video>
+            <div class="escaner-marco"></div>
+            <p class="escaner-sin-camara" id="escanerSinCamara" style="display:none;">No se pudo acceder a la cámara. Verifica los permisos del navegador.</p>
+            <button type="button" class="escaner-btn-linterna" id="escanerBtnLinterna" onclick="alternarLinternaEscaner()" title="Linterna">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 22h4M12 2a5 5 0 0 0-5 5c0 2.5 1.7 3.9 2.5 5.2.4.7.5 1.3.5 2.3h4c0-1 .1-1.6.5-2.3C15.3 10.9 17 9.5 17 7a5 5 0 0 0-5-5Z"/></svg>
+            </button>
+            <button type="button" class="escaner-btn-disparo" id="escanerBtnDisparo" onclick="capturarEscaneoPrecinto()" title="Capturar">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>
+            </button>
+          </div>
+          <p class="escaner-ayuda">Apunta la cámara al código del precinto y toca el botón de la cámara.</p>
+          <div class="escaner-capturados" id="escanerCapturados" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-guardar" style="width:100%;justify-content:center;" onclick="cerrarModalEscanearPrecinto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            Listo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ACTUALIZAR PRODUCTO — el listado de productos disponibles viene
+         del mismo catálogo de Tablas Generales que usa el sistema web
+         (cargarProductos, en data-tablas-generales.js); si el producto que se
+         necesita no está registrado ahí, el operador igual puede escribirlo
+         y agregarlo como texto libre. -->
+    <div class="modal-overlay movil-modal-overlay" id="modalActualizarProducto">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title" id="tituloModalActualizarProducto">Productos</h2>
+          <button class="modal-close" onclick="cerrarModal('modalActualizarProducto')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="op-productos-chips" id="actualizarProductoChips" style="margin-bottom:14px;"></div>
+          <div class="movil-form-group" style="position:relative;">
+            <label class="movil-form-label">Nuevo producto</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" class="movil-input" id="nuevoProductoInput" placeholder="Buscar en el catálogo o escribir" style="padding-left:14px;" autocomplete="off" oninput="buscarProductosSugeridosMovil(this.value)" onfocus="buscarProductosSugeridosMovil(this.value)">
+              <button type="button" class="btn-accion btn-guardar" style="flex-shrink:0;" onclick="agregarProductoOperacion()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <div class="movil-sugerencias" id="productoSugerenciasMovil"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-guardar" onclick="guardarActualizarProducto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            Guardar
+          </button>
+          <button class="btn-accion btn-cancelar" onclick="cancelarActualizarProducto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL REGISTRO DE JORNADA — captura obligatoria de ubicación, fecha y
+         hora al comenzar el día y al finalizar; no se puede confirmar sin
+         ubicación (ver iniciarCapturaUbicacionRegistro en operaciones-movil.js). -->
+    <div class="modal-overlay movil-modal-overlay" id="modalRegistroJornada">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title">Registro</h2>
+            <p class="registro-subtitulo" id="registroJornadaSubtitulo">Registro de Inicio de Operación</p>
+          </div>
+          <button class="modal-close" onclick="cerrarModal('modalRegistroJornada')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="registro-seccion" id="registroSeccionInicio" style="display:none;">
+            <div class="registro-seccion-titulo">Inicio</div>
+            <div class="registro-box" id="registroBoxInicio">
+              <div class="registro-fila">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <div class="registro-textos">
+                  <div class="registro-label">Ubicación de Inicio</div>
+                  <div class="registro-valor" id="registroUbicacionTextoInicio">—</div>
+                </div>
+                <button type="button" class="registro-refrescar" id="registroRefrescarInicio" onclick="iniciarCapturaUbicacionRegistro('Inicio')" title="Actualizar ubicación">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.636-6.364"/><path d="M21 4v6h-6"/></svg>
+                </button>
+              </div>
+              <div class="registro-fila">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <div class="registro-textos">
+                  <div class="registro-label">Hora y fecha de Partida:</div>
+                  <div class="registro-fecha-valor">
+                    <span id="registroHoraInicio">—</span>
+                    <span id="registroFechaInicio">—</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="registro-seccion" id="registroSeccionFin" style="display:none;">
+            <div class="registro-seccion-titulo">Fin</div>
+            <div class="registro-box" id="registroBoxFin">
+              <div class="registro-fila">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <div class="registro-textos">
+                  <div class="registro-label">Ubicación de Fin</div>
+                  <div class="registro-valor" id="registroUbicacionTextoFin">—</div>
+                </div>
+                <button type="button" class="registro-refrescar" id="registroRefrescarFin" onclick="iniciarCapturaUbicacionRegistro('Fin')" title="Actualizar ubicación">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.636-6.364"/><path d="M21 4v6h-6"/></svg>
+                </button>
+              </div>
+              <div class="registro-fila">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                <div class="registro-textos">
+                  <div class="registro-label">Hora y fecha de Finalización:</div>
+                  <div class="registro-fecha-valor">
+                    <span id="registroHoraFin">—</span>
+                    <span id="registroFechaFin">—</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-guardar" id="btnConfirmarRegistroJornada" onclick="confirmarRegistroJornada()" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <span id="btnConfirmarRegistroJornadaTexto">Iniciar Operación</span>
+          </button>
+          <button class="btn-accion btn-cancelar" onclick="cerrarModal('modalRegistroJornada')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: AL FINALIZAR EL DÍA (§2, PROMPT_GASTOS_PENDIENTES_SPRINT4
+         §1) — si hubo precintos usados/scrap reportados en la jornada,
+         muestra su reporte (todas las operaciones, por PER, en rangos
+         agrupados); si no se generó ninguno, avisa "No hay precintos
+         usados en esta jornada" — nunca salta a Gastos sin pasar por acá
+         (ver abrirModalFinalizarJornada). -->
+    <div class="modal-overlay movil-modal-overlay" id="modalFinalizarJornada">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <h2 class="modal-title">Jornada finalizada</h2>
+        </div>
+        <div class="modal-body">
+          <p id="finalizarJornadaSinPrecintos" style="font-size:12px;color:var(--gray-700);display:none;">No hay precintos usados en esta jornada.</p>
+          <div id="finalizarJornadaConPrecintos" style="display:none;">
+            <p style="font-size:11px;color:var(--gray-500);margin-bottom:8px;">Reporte de precintos de la jornada</p>
+            <div class="jornada-precintos-lista" id="listaReportePrecintosJornada"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-guardar" onclick="irAGastosDesdeJornada()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            Continuar a Gastos
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="JS/data-usuarios.js"></script>
+<script src="JS/data-tablas-generales.js"></script>
+<script src="JS/data-terminal-muelle.js"></script>
+<script src="JS/data-precintos.js"></script>
+<script src="JS/data-movil.js"></script>
+<script src="JS/data-gastos.js"></script>
+<script src="JS/main.js"></script>
+<script src="JS/nav-movil.js"></script>
+<script src="JS/operaciones-movil.js"></script>
+<script>renderNavInferiorMovil('operaciones');</script>
+</body>
+</html>

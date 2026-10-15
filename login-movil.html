@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>App Móvil – Intertek Caleb Brett</title>
+<link rel="stylesheet" href="CSS/main.css">
+<link rel="stylesheet" href="CSS/movil.css">
+</head>
+<body>
+
+<div class="movil-fondo">
+  <div class="telefono">
+    <div class="movil-splash" id="movilSplash">
+      <div class="movil-splash-isotipo-wrap">
+        <img src="IMG/badge-operaciones.png" alt="" class="movil-splash-isotipo">
+      </div>
+    </div>
+
+    <div class="movil-login-hero">
+      <div class="telefono-statusbar telefono-statusbar--claro">
+        <span id="horaStatusBar">--:--</span>
+        <span class="status-iconos">
+          <svg width="15" height="11" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 5c5-5 13-5 18 0M4 8c3.4-3.2 8.6-3.2 12 0M7.2 11c1.7-1.5 3.9-1.5 5.6 0"/><circle cx="10" cy="12.5" r="1"/></svg>
+          <svg width="20" height="11" viewBox="0 0 25 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="20" height="11" rx="2.5"/><rect x="3" y="3" width="14" height="7" rx="1" fill="currentColor" stroke="none"/><path d="M23 4.5v4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+
+      <div class="movil-login-hero-contenido">
+        <img src="IMG/logo2.png" alt="Intertek" class="movil-login-logo-img">
+      </div>
+    </div>
+
+    <div class="movil-login-sheet">
+      <h1 class="movil-login-titulo">Procesos Operaciones</h1>
+      <p class="movil-login-sub">Inicia sesión para continuar</p>
+
+      <form id="loginMovilForm" onsubmit="handleLoginMovil(event)">
+        <div class="movil-form-group">
+          <label class="movil-form-label">Usuario</label>
+          <div class="movil-input-wrap">
+            <span class="input-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <input class="movil-input" type="text" id="usuarioMovil" placeholder="nombre.usuario" autocomplete="username">
+          </div>
+        </div>
+
+        <div class="movil-form-group">
+          <label class="movil-form-label">Contraseña</label>
+          <div class="movil-input-wrap">
+            <span class="input-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            <input class="movil-input" type="password" id="passwordMovil" placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('passwordMovil','eyeIconMovil')">
+              <svg id="eyeIconMovil" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="movil-remember-row">
+          <label class="movil-toggle-label">
+            <input type="checkbox" class="movil-toggle-input" id="recordarMovil">
+            <span class="movil-toggle-track"></span>
+            Recordar contraseña
+          </label>
+        </div>
+
+        <button type="submit" class="movil-btn-primario" id="loginMovilBtn">
+          <span id="loginMovilBtnTexto">Iniciar Sesión</span>
+        </button>
+
+        <a href="#" class="movil-forgot-link" id="forgotLinkMovil" onclick="abrirModalOlvidoPassword(event)">¿Olvidaste tu contraseña?</a>
+
+        <div class="movil-error-msg" id="errorMsgMovil">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Usuario o contraseña incorrectos. Intenta nuevamente.
+        </div>
+      </form>
+    </div>
+
+    <!-- MODAL CONTRASEÑA POR VENCER / VENCIDA — mismo flujo y mismos usuarios
+         demo que el login de escritorio (index.html / index.js), acoplado al
+         marco del teléfono. -->
+    <div class="movil-modal-overlay" id="modalPassVencimientoMovil">
+      <div class="pass-venc-card" id="passVencCardMovil">
+        <div class="pass-venc-header" id="passVencHeaderMovil">
+          <a href="#" class="pass-venc-skip" id="passVencSkipMovil" onclick="saltarActualizacionPasswordMovil(event)">Saltar</a>
+          <div class="pass-venc-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h2 class="pass-venc-title" id="passVencTituloMovil">Contraseña por vencer</h2>
+          <p class="pass-venc-sub">Debes actualizar tu contraseña para continuar</p>
+        </div>
+        <div class="pass-venc-body">
+          <div class="pass-venc-info">
+            <span>Usuario: <strong id="passVencUsuarioMovil"></strong></span>
+            <span id="passVencFechaMovil"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="movil-form-label">Contraseña actual</label>
+            <div class="movil-input-wrap">
+              <input class="movil-input" style="padding-left:12px;" type="password" id="passVencActualMovil" placeholder="Ingresa tu contraseña actual">
+              <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('passVencActualMovil','iconPassVencActualMovil')">
+                <svg id="iconPassVencActualMovil" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="movil-form-label pass-label-tooltip">Nueva contraseña
+              <span class="tooltip-icon" tabindex="0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span class="tooltip-box">La contraseña debe tener:<br>• Mínimo 8 caracteres<br>• Una letra mayúscula<br>• Un número<br>• Un carácter especial</span>
+              </span>
+            </label>
+            <div class="movil-input-wrap">
+              <input class="movil-input" style="padding-left:12px;" type="password" id="passVencNuevaMovil" placeholder="Mín. 8 caracteres" oninput="medirFuerzaLogin('passVencNuevaMovil','fuerzaPassVencMovil')">
+              <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('passVencNuevaMovil','iconPassVencNuevaMovil')">
+                <svg id="iconPassVencNuevaMovil" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="fuerza-pass" id="fuerzaPassVencMovil">
+              <div class="fuerza-barra"><span></span></div>
+              <span class="fuerza-texto"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="movil-form-label">Confirmar nueva contraseña</label>
+            <div class="movil-input-wrap">
+              <input class="movil-input" style="padding-left:12px;" type="password" id="passVencConfirmarMovil" placeholder="Repite la nueva contraseña">
+              <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('passVencConfirmarMovil','iconPassVencConfirmarMovil')">
+                <svg id="iconPassVencConfirmarMovil" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn-actualizar-pass" id="btnActualizarPassMovil" onclick="actualizarContrasenaLoginMovil()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            Actualizar contraseña
+          </button>
+
+          <p class="pass-venc-footer" id="passVencFooterMovil"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL OLVIDÉ MI CONTRASEÑA (OTP + Nueva contraseña) — mismo flujo que el
+         login de escritorio, pero acoplado al marco del teléfono en vez de a
+         toda la ventana del navegador. -->
+    <div class="movil-modal-overlay" id="modalOlvidoPassword">
+    <div class="pass-venc-card" id="olvidoCard">
+      <button type="button" class="olvido-close-btn" onclick="cerrarModalOlvidoPassword()" aria-label="Cerrar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- PASO 1: Identificar usuario -->
+      <div class="olvido-step" id="olvidoStepUsuario" data-step="usuario">
+        <div class="pass-venc-header">
+          <div class="pass-venc-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/><path d="M12 12v4"/><path d="M10 14h4"/></svg>
+          </div>
+          <h2 class="pass-venc-title">¿Olvidaste tu contraseña?</h2>
+          <p class="pass-venc-sub">Ingresa tu usuario y te enviaremos un código de verificación a tu correo registrado.</p>
+        </div>
+        <div class="pass-venc-body">
+          <div class="form-group">
+            <label class="movil-form-label">Usuario</label>
+            <div class="movil-input-wrap">
+              <span class="input-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <input class="movil-input" type="text" id="olvidoUsuario" placeholder="nombre.usuario" autocomplete="username">
+            </div>
+          </div>
+
+          <div class="movil-error-msg" id="olvidoUsuarioError">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span id="olvidoUsuarioErrorTexto">Usuario no encontrado. Verifica e intenta nuevamente.</span>
+          </div>
+
+          <button type="button" class="btn-actualizar-pass" id="btnEnviarCodigo" onclick="enviarCodigoOtp()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+            <span class="btn-actualizar-pass-texto">Enviar código</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PASO 2: Verificación OTP -->
+      <div class="olvido-step" id="olvidoStepOtp" data-step="otp" style="display:none;">
+        <div class="pass-venc-header">
+          <div class="pass-venc-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+          </div>
+          <h2 class="pass-venc-title">Verifica tu código</h2>
+          <p class="pass-venc-sub">Enviamos un código a <strong id="olvidoEmailMasked">tu correo</strong>. Ingresa los 6 dígitos.</p>
+        </div>
+        <div class="pass-venc-body">
+          <div class="otp-input-group" id="otpInputGroup">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="0" autocomplete="one-time-code">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="1">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="2">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="3">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="4">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="otp-box" data-otp-index="5">
+          </div>
+
+          <div class="movil-error-msg" id="olvidoOtpError">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span id="olvidoOtpErrorTexto">Código incorrecto. Intenta nuevamente.</span>
+          </div>
+
+          <div class="otp-demo-hint" id="otpDemoHint"></div>
+
+          <div class="otp-resend">
+            <span id="otpTimerTexto">Reenviar en <strong id="otpTimer">05:00</strong></span>
+            <a href="#" id="otpResendLink" class="otp-resend-link" style="display:none;" onclick="reenviarCodigoOtp(event)">Reenviar código</a>
+          </div>
+
+          <button type="button" class="btn-actualizar-pass" id="btnValidarOtp" onclick="validarCodigoOtp()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="btn-actualizar-pass-texto">Validar código</span>
+          </button>
+
+          <a href="#" class="olvido-volver" onclick="volverAUsuario(event)">← Volver</a>
+        </div>
+      </div>
+
+      <!-- PASO 3: Nueva contraseña -->
+      <div class="olvido-step" id="olvidoStepNueva" data-step="nueva" style="display:none;">
+        <div class="pass-venc-header">
+          <div class="pass-venc-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><path d="m9 16 2 2 4-4"/></svg>
+          </div>
+          <h2 class="pass-venc-title">Crea tu nueva contraseña</h2>
+          <p class="pass-venc-sub">Tu identidad fue verificada. Ingresa y confirma tu nueva contraseña.</p>
+        </div>
+        <div class="pass-venc-body">
+          <div class="form-group">
+            <label class="movil-form-label pass-label-tooltip">Nueva contraseña
+              <span class="tooltip-icon" tabindex="0">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span class="tooltip-box">La contraseña debe tener:<br>• Mínimo 8 caracteres<br>• Una letra mayúscula<br>• Un número<br>• Un carácter especial</span>
+              </span>
+            </label>
+            <div class="movil-input-wrap">
+              <input class="movil-input" style="padding-left:12px;" type="password" id="olvidoPassNueva" placeholder="Mín. 8 caracteres" oninput="medirFuerzaLogin('olvidoPassNueva','fuerzaOlvidoPass')">
+              <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('olvidoPassNueva','iconOlvidoPassNueva')">
+                <svg id="iconOlvidoPassNueva" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="fuerza-pass" id="fuerzaOlvidoPass">
+              <div class="fuerza-barra"><span></span></div>
+              <span class="fuerza-texto"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="movil-form-label">Confirmar nueva contraseña</label>
+            <div class="movil-input-wrap">
+              <input class="movil-input" style="padding-left:12px;" type="password" id="olvidoPassConfirmar" placeholder="Repite la nueva contraseña">
+              <button type="button" class="movil-toggle-pass" onclick="toggleCampoPass('olvidoPassConfirmar','iconOlvidoPassConfirmar')">
+                <svg id="iconOlvidoPassConfirmar" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn-actualizar-pass" id="btnGuardarNuevaPass" onclick="guardarNuevaPasswordOlvido()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            <span class="btn-actualizar-pass-texto">Guardar contraseña</span>
+          </button>
+
+          <p class="pass-venc-footer" id="olvidoFooter"></p>
+        </div>
+      </div>
+      </div>
+  </div>
+  </div>
+</div>
+
+<script src="JS/data-usuarios.js"></script>
+<script src="JS/data-tablas-generales.js"></script>
+<script src="JS/data-precintos.js"></script>
+<script src="JS/data-movil.js"></script>
+<script src="JS/main.js"></script>
+<script src="JS/login-movil.js"></script>
+<script src="JS/olvido-password.js"></script>
+</body>
+</html>

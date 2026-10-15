@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perfil – App Móvil</title>
+<link rel="stylesheet" href="CSS/main.css">
+<link rel="stylesheet" href="CSS/movil.css">
+</head>
+<body>
+
+<div class="movil-fondo">
+  <div class="telefono">
+    <div class="movil-header">
+      <div class="telefono-statusbar telefono-statusbar--claro">
+        <span id="horaStatusBar">--:--</span>
+        <span class="status-iconos">
+          <svg width="15" height="11" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 5c5-5 13-5 18 0M4 8c3.4-3.2 8.6-3.2 12 0M7.2 11c1.7-1.5 3.9-1.5 5.6 0"/><circle cx="10" cy="12.5" r="1"/></svg>
+          <svg width="20" height="11" viewBox="0 0 25 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="20" height="11" rx="2.5"/><rect x="3" y="3" width="14" height="7" rx="1" fill="currentColor" stroke="none"/><path d="M23 4.5v4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+
+      <div class="movil-header-fila">
+        <div class="movil-header-titulos">
+          <div class="movil-header-titulo">Mi Perfil</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="movil-contenido">
+      <div class="perfil-cabecera">
+        <div class="perfil-avatar" id="perfilAvatar">--</div>
+        <div class="perfil-nombre" id="perfilNombre">—</div>
+        <div class="perfil-rol" id="perfilRol">—</div>
+      </div>
+
+      <div class="movil-card">
+        <div class="movil-card-titulo">Datos personales</div>
+        <div class="perfil-dato-fila"><span class="perfil-dato-label">Locación Principal</span><span class="perfil-dato-valor" id="perfilLocacion">—</span></div>
+        <div class="perfil-dato-fila"><span class="perfil-dato-label">DNI</span><span class="perfil-dato-valor" id="perfilDni">—</span></div>
+        <div class="perfil-dato-fila"><span class="perfil-dato-label">Celular</span><span class="perfil-dato-valor" id="perfilCelular">—</span></div>
+        <div class="perfil-dato-fila"><span class="perfil-dato-label">Correo</span><span class="perfil-dato-valor" id="perfilCorreo">—</span></div>
+      </div>
+
+      <div class="movil-card">
+        <div class="movil-card-titulo">Ubicación</div>
+        <div class="perfil-ubicacion-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="perfilUbicacionTexto">Aún no se registró una ubicación.</span>
+        </div>
+        <button type="button" class="movil-btn-secundario" id="btnActualizarUbicacion" onclick="actualizarUbicacionPerfil()">
+          Actualizar Ubicación
+        </button>
+      </div>
+
+      <div class="movil-card">
+        <div class="movil-card-titulo">Firma registrada</div>
+        <div class="perfil-firma-box" id="perfilFirmaBox">
+          <span class="perfil-firma-vacio">Aún no tienes una firma registrada. Se carga desde Configuración &gt; Usuarios.</span>
+        </div>
+      </div>
+
+      <button type="button" class="movil-btn-secundario" style="margin-bottom:10px;" onclick="abrirModalCambiarMiPassword()">
+        Cambiar contraseña
+      </button>
+
+      <button type="button" class="movil-btn-peligro" onclick="cerrarSesionMovil()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
+
+    <div class="movil-bottomnav" id="movilBottomnav"></div>
+  </div>
+</div>
+
+<script src="JS/data-usuarios.js"></script>
+<script src="JS/data-tablas-generales.js"></script>
+<script src="JS/data-precintos.js"></script>
+<script src="JS/data-movil.js"></script>
+<script src="JS/main.js"></script>
+<script src="JS/nav-movil.js"></script>
+<script src="JS/perfil-movil.js"></script>
+<script>renderNavInferiorMovil('perfil');</script>
+</body>
+</html>
