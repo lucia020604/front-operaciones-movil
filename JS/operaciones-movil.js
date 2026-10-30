@@ -372,6 +372,9 @@ function confirmarRegistroJornada() {
   if (registroJornadaModo === 'inicio') {
     jornada.inicio = bloqueHoraUbicacion;
     jornada.estado = 'abierta';
+    jornada.operaciones = typeof obtenerOperacionesAsignadasOperador === 'function'
+      ? obtenerOperacionesAsignadasOperador(sesion.usuario).slice(0, 3)
+      : [];
   } else {
     jornada.fin = bloqueHoraUbicacion;
     jornada.estado = 'cerrada';
@@ -507,6 +510,12 @@ function irAGastosDesdeJornada() {
 // operación de la lista está operando (se fija al abrir cada modal).
 let indiceOperacionActiva = null;
 
+function obtenerFechaOperacion(op, claveEstado) {
+  return op.estados && op.estados[claveEstado] && op.estados[claveEstado].fecha
+    ? op.estados[claveEstado].fecha
+    : '—';
+}
+
 function renderOperacionesAsignadas() {
   const cont = document.getElementById('operacionesLista');
   const lista = OPERACIONES_ASIGNADAS_MOVIL_DEMO;
@@ -537,8 +546,14 @@ function renderOperacionesAsignadas() {
   cont.innerHTML = lista.map((op, i) => `
     <div class="movil-card op-card">
       <div class="op-card-header">
-        <span class="op-codigo-badge">${op.codigo}</span>
-        <span class="op-card-terminal">${op.terminal}</span>
+        <div class="op-card-header-top">
+          <span class="op-codigo-badge">${op.codigo}</span>
+          <span class="op-card-terminal">${op.terminal}</span>
+        </div>
+        <div class="op-card-fechas" aria-label="Fechas de la operación">
+          <span><span class="op-card-fecha-label">Inicio</span><strong class="op-card-fecha-valor">${obtenerFechaOperacion(op, 'inicia')}</strong></span>
+          <span><span class="op-card-fecha-label">Fin</span><strong class="op-card-fecha-valor">${obtenerFechaOperacion(op, 'termina')}</strong></span>
+        </div>
       </div>
       <div class="op-datos-grid">
         <div class="op-dato"><span class="lbl">Cliente</span><span class="val">${op.cliente}</span></div>

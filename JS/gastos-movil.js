@@ -124,7 +124,7 @@ function renderTarjetaJornadaHoy() {
   // Operaciones asignadas: siempre las del operador (no varían si hubo o no
   // precintos ese día). Precintos usados sí es específico de la fecha de
   // esta jornada — se informan por separado (corrección pedida).
-  const operaciones = obtenerOperacionesAsignadasOperador(gastosMovilUsuario);
+  const operaciones = obtenerOperacionesParaReporteJornada(gastosMovilUsuario, jornada);
   const precintos = jornada ? obtenerPrecintosDeJornada(gastosMovilUsuario, jornada.fecha) : [];
 
   const elFecha = document.getElementById('gastosJornadaFecha');
@@ -388,24 +388,48 @@ function renderJornadasRecientesGastos() {
     // asignadas al operador, que no varían día a día — corrección pedida).
     const precintos = obtenerPrecintosDeJornada(gastosMovilUsuario, j.fecha);
     const fechaDD = fechaISOaDDMMYYYY(j.fecha);
+    const operaciones = obtenerOperacionesParaReporteJornada(gastosMovilUsuario, j);
     const detalleAlim = obtenerDetalleGastoPorTipo('Alimentos', gastosMovilPeriodo.ids['Alimentos']);
     const detalleMov = obtenerDetalleGastoPorTipo('Movilidad', gastosMovilPeriodo.ids['Movilidad']);
-    const totalDia = detalleAlim.grilla.filter(f => f.fecha === fechaDD).reduce((a, f) => a + (Number(f.costo) || 0), 0)
-      + detalleMov.grilla.filter(f => f.fecha === fechaDD).reduce((a, f) => a + (Number(f.totalDia) || 0), 0);
-    const faltantes = [];
-    if (!detalleAlim.grilla.some(f => f.fecha === fechaDD)) faltantes.push('Alimentos');
-    if (!detalleMov.grilla.some(f => f.fecha === fechaDD)) faltantes.push('Movilidad');
-    const chipsFaltantes = faltantes.length
-      ? `<span class="gastos-faltante-chip">Falta: ${faltantes.join(', ')}</span>` : '';
+    const filasAlimentos = detalleAlim.grilla.filter(f => f.fecha === fechaDD);
+    const filasMovilidad = detalleMov.grilla.filter(f => f.fecha === fechaDD);
+    const totalAlimentos = filasAlimentos.reduce((a, f) => a + (Number(f.costo) || 0), 0);
+    const totalMovilidad = filasMovilidad.reduce((a, f) => a + (Number(f.totalDia) || 0), 0);
+    const estadoAlimentos = estadoReporteDelDia(filasAlimentos);
+    const estadoMovilidad = estadoReporteDelDia(filasMovilidad);
+    const claseAlimentos = claseBadgeEstadoReporte(estadoAlimentos);
+    const claseMovilidad = claseBadgeEstadoReporte(estadoMovilidad);
+    const inicio = j.inicio ? `${j.inicio.fecha} ${horaA12(j.inicio.hora)}` : '—';
+    const fin = j.fin ? `${j.fin.fecha} ${horaA12(j.fin.hora)}` : 'Jornada abierta';
     return `
-      <button type="button" class="gastos-mis-gastos-item" onclick="irAJornadaDesdeGastos('${j.fecha}')">
-        <div class="gastos-mis-gastos-info">
-          <span class="gastos-mis-gastos-fecha">${fechaDD}</span>
-          <span class="gastos-mis-gastos-sub">${precintos.length ? `Precintos usados (${precintos.length})` : 'Sin precintos usados'}</span>
-          ${chipsFaltantes}
+      <section class="gastos-jornada-resumen">
+        <button type="button" class="gastos-jornada-resumen-header" onclick="irAJornadaDesdeGastos('${j.fecha}')">
+          <span class="gastos-mis-gastos-fecha">Jornada del ${fechaDD}</span>
+          <span class="badge ${j.estado === 'abierta' ? 'badge-por-vencer' : 'badge-gris'}">${j.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</span>
+        </button>
+        <div class="gastos-jornada-resumen-datos">
+          <span>Inicio <strong>${inicio}</strong></span>
+          <span>Fin <strong>${fin}</strong></span>
         </div>
-        <span class="gastos-mis-gastos-monto">S/ ${totalDia.toFixed(2)}</span>
-      </button>`;
+        <div class="gastos-jornada-operaciones">
+          <span>Operaciones realizadas</span>
+          <strong>${textoOperacionesInvolucradas(operaciones)}</strong>
+        </div>
+        <div class="gastos-jornada-reportes-wrap">
+          <span class="gastos-jornada-reportes-titulo">Reportes de la jornada</span>
+          <div class="gastos-jornada-reportes">
+          <div class="gastos-jornada-reporte">
+            <div><span>Alimentos</span><strong>S/ ${totalAlimentos.toFixed(2)}</strong></div>
+            <span class="badge ${claseAlimentos.replace('badge ', '')}">${estadoAlimentos}</span>
+          </div>
+          <div class="gastos-jornada-reporte">
+            <div><span>Gastos operativos</span><strong>S/ ${totalMovilidad.toFixed(2)}</strong></div>
+            <span class="badge ${claseMovilidad.replace('badge ', '')}">${estadoMovilidad}</span>
+          </div>
+          </div>
+        </div>
+        <span class="gastos-jornada-resumen-precintos">${precintos.length ? `Precintos usados (${precintos.length})` : 'Sin precintos usados'}</span>
+      </section>`;
   }).join('');
 }
 

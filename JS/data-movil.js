@@ -123,8 +123,8 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
       arriba: { fecha: '06/07/2026', hora: '08:10', comentario: '' },
       fondea: { fecha: '', hora: '', comentario: '' },
       amarreInicio: { valor: '', comentario: '' },
-      inicia: { fecha: '', hora: '', comentario: '' },
-      termina: { fecha: '', hora: '', comentario: '' },
+      inicia: { fecha: '06/07/2026', hora: '09:15', comentario: '' },
+      termina: { fecha: '06/07/2026', hora: '17:20', comentario: '' },
       firmaDocumentos: { valor: '', comentario: '' },
       zarpe: { fecha: '', hora: '', comentario: '' }
     }
@@ -218,6 +218,43 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
 // =================================================
 const JORNADAS_MOVIL_DEMO = tgCargarCatalogo('jornadasMovilData', {});
 function guardarJornadasMovil() { tgGuardarCatalogo('jornadasMovilData', JORNADAS_MOVIL_DEMO); }
+
+function asegurarJornadasDemoAnteriores(usuario) {
+  if (!usuario || typeof obtenerFechaHoyISO !== 'function') return;
+
+  const hoy = new Date(`${obtenerFechaHoyISO()}T00:00:00`);
+  let cambio = false;
+  [1, 2].forEach((diasAtras, indice) => {
+    const fecha = new Date(hoy);
+    fecha.setDate(fecha.getDate() - diasAtras);
+    const pad = n => String(n).padStart(2, '0');
+    const fechaISO = `${fecha.getFullYear()}-${pad(fecha.getMonth() + 1)}-${pad(fecha.getDate())}`;
+    const fechaTexto = `${pad(fecha.getDate())}/${pad(fecha.getMonth() + 1)}/${fecha.getFullYear()}`;
+    const clave = `${usuario}_${fechaISO}`;
+    if (JORNADAS_MOVIL_DEMO[clave]) return;
+    const operacionesDemo = typeof obtenerOperacionesAsignadasOperador === 'function'
+      ? obtenerOperacionesAsignadasOperador(usuario).slice(0, 3)
+      : [];
+
+    JORNADAS_MOVIL_DEMO[clave] = {
+      id: clave,
+      usuario,
+      fecha: fechaISO,
+      inicio: { hora: '08:00', horaLarga: '08:00 am', fecha: fechaTexto, fechaHoraISO: `${fechaISO}T08:00:00`, ubicacionTexto: 'Ubicación registrada', fuente: 'demo', sincronizado: true },
+      fin: { hora: '17:00', horaLarga: '05:00 pm', fecha: fechaTexto, fechaHoraISO: `${fechaISO}T17:00:00`, ubicacionTexto: 'Ubicación registrada', fuente: 'demo', sincronizado: true },
+      estado: 'cerrada',
+      operaciones: operacionesDemo,
+      horas: 9,
+      demo: true
+    };
+    cambio = true;
+  });
+
+  if (cambio) guardarJornadasMovil();
+}
+
+const usuarioSesionMovil = typeof obtenerUsuarioActual === 'function' ? obtenerUsuarioActual() : null;
+if (usuarioSesionMovil) asegurarJornadasDemoAnteriores(usuarioSesionMovil.usuario);
 
 // Parámetros configurables de Jornada/Gastos que antes no existían en
 // ninguna parte (Configuración de Gastos, web, es quien los edita) — ver
@@ -365,6 +402,18 @@ function obtenerJornadaActiva(usuario) {
 // marcada o declarada en la fecha del gasto que se quiere registrar.
 function obtenerJornadaPorFecha(usuario, fechaISO) {
   return JORNADAS_MOVIL_DEMO[`${usuario}_${fechaISO}`] || null;
+}
+
+function obtenerOperacionesParaReporteJornada(usuario, jornada) {
+  if (!jornada) return [];
+  if (Array.isArray(jornada.operaciones) && jornada.operaciones.length) {
+    return jornada.operaciones.slice(0, 3);
+  }
+  const derivadas = obtenerOperacionesDeJornada(usuario, jornada.fecha);
+  if (derivadas.length) return derivadas.slice(0, 3);
+  return typeof obtenerOperacionesAsignadasOperador === 'function'
+    ? obtenerOperacionesAsignadasOperador(usuario).slice(0, 3)
+    : [];
 }
 
 // Duración en horas entre inicio y fin (datetime completo, no solo la hora)

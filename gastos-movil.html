@@ -71,9 +71,11 @@
           <span class="gastos-jornada-card-titulo">Jornada del <span id="gastosJornadaFecha">—</span></span>
           <span class="badge badge-gris" id="gastosJornadaEstado">—</span>
         </div>
-        <div class="gastos-panel-info-fila"><span>Inicio de jornada</span><strong id="gastosJornadaInicio">—</strong></div>
-        <div class="gastos-panel-info-fila"><span>Fin de jornada</span><strong id="gastosJornadaFin">—</strong></div>
-        <div class="gastos-panel-info-fila"><span>Operaciones asignadas</span><strong id="gastosJornadaOperaciones">—</strong></div>
+        <div class="gastos-jornada-datos-grid">
+          <div class="gastos-panel-info-fila"><span>Inicio de jornada</span><strong id="gastosJornadaInicio">—</strong></div>
+          <div class="gastos-panel-info-fila"><span>Fin de jornada</span><strong id="gastosJornadaFin">—</strong></div>
+        </div>
+        <div class="gastos-panel-info-fila gastos-jornada-operaciones-fila"><span>Operaciones realizadas</span><strong id="gastosJornadaOperaciones">—</strong></div>
         <!-- Botón "Precintos", arriba de la fila "Precintos usados": corrige
              lo que se marcó mal en Operaciones (usado/scrap por error) —
              abre modalPrecintosJornadaGastos, con pestañas Usado/Scrap
@@ -84,11 +86,10 @@
         </button>
         <div class="gastos-panel-info-fila"><span>Precintos usados</span><strong id="gastosJornadaPrecintos">—</strong></div>
         <p class="gastos-jornada-plazo" id="gastosJornadaPlazoOlvido"></p>
-      </div>
 
       <!-- TARJETAS DE REPORTE DE LA JORNADA (§4.2): Alimentos y Movilidad se
            registran desde acá; Días a Bordo es de solo lectura. -->
-      <div class="gastos-tarjetas">
+      <div class="gastos-tarjetas gastos-tarjetas--jornada">
         <div class="gastos-tarjeta">
           <div class="gastos-tarjeta-header">
             <span class="gastos-tarjeta-titulo">Alimentos</span>
@@ -127,6 +128,7 @@
           <span class="gastos-tarjeta-nota-chica" id="gastosDiasBordoHoy">Se genera automático — solo consulta.</span>
         </div>
       </div>
+      </div>
 
       <a class="gastos-btn-mis-gastos" href="reportes-movil.html">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -138,7 +140,7 @@
            componente, renombrado para que quede claro que son los días
            DENTRO del período activo, §4.4): toca una para corregir un
            olvido dentro del plazo sin tener que recordar la fecha exacta. -->
-      <p class="gastos-panel-info-titulo" style="margin-top:16px;">Jornadas de este período</p>
+      <p class="gastos-panel-info-titulo gastos-jornadas-titulo" style="margin-top:16px;">Jornadas iniciadas</p>
       <div id="gastosJornadasRecientes"></div>
     </div>
 

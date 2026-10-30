@@ -998,9 +998,7 @@ select.movil-input {
   font-size: 10px;
   font-weight: 600;
   color: var(--gray-200);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .jornada-badge {
@@ -1061,13 +1059,22 @@ select.movil-input {
 
 .op-card-header {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.op-card-header-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 8px;
 }
 
 .op-codigo-badge {
   display: inline-block;
+  align-self: flex-start;
   background: var(--yellow-light);
   color: var(--yellow-dark);
   font-weight: 700;
@@ -1082,6 +1089,44 @@ select.movil-input {
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: .03em;
+}
+
+.op-card-fechas {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--gray-500);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  background: rgba(0, 180, 216, .1);
+  border-radius: 5px;
+  padding: 3px 5px;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.op-card-fechas > span {
+  white-space: nowrap;
+}
+
+.op-card-fechas > span + span {
+  border-left: 1px solid rgba(0, 150, 183, .2);
+  padding-left: 12px;
+}
+
+.op-card-fecha-label {
+  color: var(--gray-400);
+  font-size: 8px;
+  font-weight: 700;
+  margin-right: 3px;
+  text-transform: uppercase;
+}
+
+.op-card-fecha-valor {
+  color: var(--cyan-dark);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .op-datos-grid {
@@ -1859,16 +1904,73 @@ select.movil-input {
 .gastos-jornada-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   background: var(--white);
   border: 1.5px solid var(--gray-200);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 14px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .gastos-jornada-card-header { display: flex; justify-content: space-between; align-items: center; }
 .gastos-jornada-card-titulo { font-size: 12.5px; font-weight: 700; color: var(--black); }
 .gastos-jornada-plazo { font-size: 10px; color: var(--gray-500); margin: 2px 0 0; }
+.gastos-jornada-datos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.gastos-jornada-datos-grid .gastos-panel-info-fila { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 3px 0; }
+.gastos-jornada-datos-grid .gastos-panel-info-fila strong { text-align: left; }
+
+.gastos-jornadas-titulo { margin-bottom: 6px; }
+.gastos-jornada-resumen {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.gastos-jornada-resumen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--gray-100);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.gastos-jornada-resumen-header .badge { flex-shrink: 0; font-size: 9px; padding: 2px 7px; }
+.gastos-jornada-resumen-datos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 9px;
+  color: var(--gray-500);
+}
+.gastos-jornada-resumen-datos span { display: flex; flex-direction: column; gap: 2px; }
+.gastos-jornada-resumen-datos strong { color: var(--black); font-size: 10px; font-weight: 600; }
+.gastos-jornada-operaciones { display: flex; flex-direction: column; gap: 2px; padding: 7px 0; border-top: 1px solid var(--gray-100); border-bottom: 1px solid var(--gray-100); }
+.gastos-jornada-operaciones span { font-size: 8px; color: var(--gray-500); text-transform: uppercase; letter-spacing: .04em; }
+.gastos-jornada-operaciones strong { font-size: 9px; line-height: 1.25; color: var(--black); font-weight: 600; overflow-wrap: anywhere; }
+.gastos-jornada-reportes-wrap { border-top: 1px solid var(--gray-100); padding-top: 8px; }
+.gastos-jornada-reportes-titulo { display: block; margin-bottom: 6px; font-size: 9px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .04em; }
+.gastos-jornada-reportes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.gastos-jornada-reporte {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--gray-100);
+  border-radius: 8px;
+  padding: 8px;
+}
+.gastos-jornada-reporte > div { display: flex; flex-direction: column; gap: 2px; }
+.gastos-jornada-reporte > div span { font-size: 9px; color: var(--gray-500); }
+.gastos-jornada-reporte > div strong { font-size: 11px; color: var(--black); }
+.gastos-jornada-reporte .badge { align-self: flex-start; font-size: 8px; padding: 2px 6px; }
+.gastos-jornada-resumen-precintos { display: block; margin-top: 8px; font-size: 9px; color: var(--gray-400); }
 
 .gastos-tarjeta-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 4px; }
 .gastos-tarjeta-codigo { font-size: 10px; color: var(--gray-500); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1953,11 +2055,20 @@ select.movil-input {
   gap: 10px;
   margin-bottom: 14px;
 }
+.gastos-tarjetas--jornada {
+  width: 100%;
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--gray-100);
+}
 .gastos-tarjeta {
   border: 1px solid var(--gray-200);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  min-width: 0;
 }
+.gastos-tarjetas--jornada .gastos-tarjeta { width: 100%; }
 .gastos-tarjeta-lectura { background: var(--gray-100); }
 .gastos-tarjeta-header {
   display: flex;
@@ -1967,9 +2078,28 @@ select.movil-input {
 }
 .gastos-tarjeta-titulo { font-size: 13px; font-weight: 700; color: var(--black); }
 .gastos-tarjeta-total { font-size: 15px; font-weight: 700; color: var(--yellow-dark); }
-.gastos-btn-registrar { width: 100%; height: 34px; font-size: 11px; gap: 8px; margin-top: 10px; }
-.gastos-tarjeta-nota { display: block; font-size: 10.5px; color: var(--gray-700); }
-.gastos-tarjeta-nota-chica { display: block; font-size: 9px; color: var(--gray-400); margin-top: 2px; }
+.gastos-tarjeta-lectura .gastos-tarjeta-titulo { min-width: 0; }
+.gastos-tarjeta-lectura .gastos-tarjeta-total { flex-shrink: 0; }
+.gastos-jornada-operaciones-fila strong { max-width: 62%; overflow-wrap: anywhere; }
+.gastos-btn-registrar {
+  width: 100%;
+  height: 34px;
+  margin-top: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--yellow-dark);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(17,17,17,.12);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.gastos-btn-registrar svg { width: 14px; height: 14px; flex-shrink: 0; }
+.gastos-btn-registrar:hover { background: var(--yellow-dark); }
+.gastos-tarjeta-nota { display: block; font-size: 10.5px; color: var(--gray-700); overflow-wrap: anywhere; }
+.gastos-tarjeta-nota-chica { display: block; font-size: 9px; color: var(--gray-400); line-height: 1.25; margin-top: 2px; overflow-wrap: anywhere; }
 
 .gastos-btn-mis-gastos {
   display: flex;
