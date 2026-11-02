@@ -1,1 +1,0 @@
-# front-operaciones-movil
