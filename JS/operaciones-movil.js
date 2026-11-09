@@ -599,6 +599,8 @@ function renderOperacionesAsignadas() {
 // más detallado.
 // =================================================
 function estadoEstaCompletado(estado, dato) {
+  if (!dato) return false;
+  if (dato.sinValorActividad) return !!(dato.comentario && dato.comentario.trim());
   return estado.tipo === 'fechaHora' ? !!dato.fecha : !!(dato.valor && String(dato.valor).trim());
 }
 
@@ -738,12 +740,17 @@ let claveEstadoEditando = null;
 // 3 filas y cortar el texto) hasta un máximo; de ahí en adelante se vuelve
 // desplazable para no empujar el resto del modal fuera de la pantalla.
 const ANADIR_HORA_COMENTARIO_MAX_ALTO = 120;
+const ANADIR_HORA_COMENTARIO_MIN_ALTO = 84;
 
 function autoAjustarTextareaMovil(el) {
   el.style.height = 'auto';
-  const alto = Math.min(el.scrollHeight, ANADIR_HORA_COMENTARIO_MAX_ALTO);
+  const altoContenido = el.scrollHeight;
+  const alto = Math.max(
+    ANADIR_HORA_COMENTARIO_MIN_ALTO,
+    Math.min(altoContenido, ANADIR_HORA_COMENTARIO_MAX_ALTO)
+  );
   el.style.height = `${alto}px`;
-  el.style.overflowY = el.scrollHeight > ANADIR_HORA_COMENTARIO_MAX_ALTO ? 'auto' : 'hidden';
+  el.style.overflowY = altoContenido > ANADIR_HORA_COMENTARIO_MAX_ALTO ? 'auto' : 'hidden';
 }
 
 function abrirModalAnadirHora(indice) {
@@ -753,6 +760,7 @@ function abrirModalAnadirHora(indice) {
 
   indiceOperacionActiva = indice;
   claveEstadoEditando = null;
+  configurarCamposAnadirHora(true);
   document.getElementById('tituloModalAnadirHora').textContent = `Añadir Hora — ${op.codigo}`;
   document.getElementById('anadirHoraEtiqueta').textContent = siguiente.tipo === 'fechaHora' ? siguiente.etiqueta : `${siguiente.etiqueta} · ${siguiente.campoLabel}`;
 
@@ -767,11 +775,11 @@ function abrirModalAnadirHora(indice) {
 
   const campoComentario = document.getElementById('anadirHoraComentario');
   campoComentario.value = '';
-  autoAjustarTextareaMovil(campoComentario);
   document.getElementById('dictadoTexto').textContent = 'Toca el micrófono para dictar el comentario.';
   document.getElementById('btnMicrofono').classList.remove('grabando');
 
   abrirModal('modalAnadirHora');
+  requestAnimationFrame(() => autoAjustarTextareaMovil(campoComentario));
 }
 
 // Editar un estado ya registrado (desde el ícono de lápiz en "Horario"):
@@ -788,6 +796,7 @@ function abrirModalEditarEstado(clave) {
   claveEstadoEditando = clave;
   cerrarModal('modalHorario');
 
+  configurarCamposAnadirHora(!dato.sinValorActividad);
   document.getElementById('tituloModalAnadirHora').textContent = `Editar ${estado.etiqueta} — ${op.codigo}`;
   document.getElementById('anadirHoraEtiqueta').textContent = estado.tipo === 'fechaHora' ? estado.etiqueta : `${estado.etiqueta} · ${estado.campoLabel}`;
 
@@ -795,8 +804,12 @@ function abrirModalEditarEstado(clave) {
   campoValor.type = estado.tipo === 'fechaHora' ? 'datetime-local' : (estado.tipo === 'numero' ? 'number' : 'text');
   campoValor.placeholder = estado.tipo === 'fechaHora' ? '' : (estado.campoPlaceholder || '');
   if (estado.tipo === 'fechaHora') {
-    const [dia, mes, anio] = dato.fecha.split('/');
-    campoValor.value = `${anio}-${mes}-${dia}T${dato.hora}`;
+    if (dato.fecha && dato.hora) {
+      const [dia, mes, anio] = dato.fecha.split('/');
+      campoValor.value = `${anio}-${mes}-${dia}T${dato.hora}`;
+    } else {
+      campoValor.value = '';
+    }
   } else {
     campoValor.value = dato.valor || '';
   }
@@ -804,11 +817,26 @@ function abrirModalEditarEstado(clave) {
 
   const campoComentario = document.getElementById('anadirHoraComentario');
   campoComentario.value = dato.comentario || '';
-  autoAjustarTextareaMovil(campoComentario);
   document.getElementById('dictadoTexto').textContent = 'Toca el micrófono para dictar el comentario.';
   document.getElementById('btnMicrofono').classList.remove('grabando');
 
   abrirModal('modalAnadirHora');
+  requestAnimationFrame(() => autoAjustarTextareaMovil(campoComentario));
+}
+
+function configurarCamposAnadirHora(incluirValor) {
+  document.getElementById('anadirHoraIncluirValor').checked = !incluirValor;
+  actualizarModoAnadirHora();
+}
+
+function actualizarModoAnadirHora() {
+  const incluirValor = !document.getElementById('anadirHoraIncluirValor').checked;
+  document.getElementById('anadirHoraValorGrupo').hidden = !incluirValor;
+  document.getElementById('anadirHoraComentarioReq').style.display = incluirValor ? 'none' : '';
+  const campoComentario = document.getElementById('anadirHoraComentario');
+  campoComentario.required = !incluirValor;
+  campoComentario.setAttribute('aria-required', String(!incluirValor));
+  if (!incluirValor) limpiarErrorCampo(document.getElementById('anadirHoraValor'));
 }
 
 // Cerrar/Cancelar el modal: si se estaba editando un estado desde
@@ -849,18 +877,36 @@ function guardarAnadirHora() {
 
   const campoValor = document.getElementById('anadirHoraValor');
   const comentario = document.getElementById('anadirHoraComentario').value.trim();
+  const incluirValor = document.getElementById('anadirHoraIncluirValor').checked;
 
-  if (!campoValor.value) {
+  if (!incluirValor && !comentario) {
+    mostrarErrorCampo(document.getElementById('anadirHoraComentario'), 'Ingresa un comentario');
+    return;
+  }
+
+  if (incluirValor && !campoValor.value) {
     mostrarErrorCampo(campoValor, estado.tipo === 'fechaHora' ? 'Selecciona fecha y hora' : `Ingresa ${estado.campoLabel.toLowerCase()}`);
     return;
   }
 
-  if (estado.tipo === 'fechaHora') {
-    const [fechaParte, horaParte] = campoValor.value.split('T');
+  if (incluirValor && estado.tipo === 'fechaHora') {
+    const valorFechaHora = campoValor.value;
+    const [fechaParte, horaParte] = valorFechaHora.split('T');
     const [anio, mes, dia] = fechaParte.split('-');
-    op.estados[estado.clave] = { fecha: `${dia}/${mes}/${anio}`, hora: horaParte, comentario };
+    op.estados[estado.clave] = {
+      fecha: `${dia}/${mes}/${anio}`,
+      hora: horaParte,
+      comentario,
+      sinValorActividad: false
+    };
+  } else if (incluirValor) {
+    op.estados[estado.clave] = {
+      valor: campoValor.value.trim(),
+      comentario,
+      sinValorActividad: false
+    };
   } else {
-    op.estados[estado.clave] = { valor: campoValor.value.trim(), comentario };
+    op.estados[estado.clave] = { comentario, sinValorActividad: true };
   }
 
   const editando = !!claveEstadoEditando;
@@ -904,7 +950,11 @@ function renderTimelineEstados() {
     const completado = estadoEstaCompletado(e, dato);
     const detalle = !completado
       ? 'Pendiente de registrar'
-      : (e.tipo === 'fechaHora' ? `${dato.fecha} · ${horaA12(dato.hora)}` : dato.valor);
+      : (dato.sinValorActividad
+        ? 'Registrado sin información de actividad'
+        : e.tipo === 'fechaHora'
+          ? `${dato.fecha} · ${horaA12(dato.hora)}`
+          : dato.valor);
     return `
       <div class="timeline-item ${completado ? 'completado' : ''}">
         <div class="timeline-punto">

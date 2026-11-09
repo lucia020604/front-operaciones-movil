@@ -107,12 +107,16 @@
           </button>
         </div>
         <div class="modal-body">
-          <div class="movil-form-group">
+          <label class="anadir-hora-flag">
+            <input type="checkbox" id="anadirHoraIncluirValor" onchange="actualizarModoAnadirHora()">
+            <span>No registrar actividad</span>
+          </label>
+          <div class="movil-form-group" id="anadirHoraValorGrupo">
             <label class="movil-form-label" id="anadirHoraEtiqueta">Estado</label>
             <input class="movil-input" id="anadirHoraValor" style="padding-left:14px;">
           </div>
           <div class="movil-form-group">
-            <label class="movil-form-label">Comentario</label>
+            <label class="movil-form-label">Comentario <span class="req" id="anadirHoraComentarioReq" style="display:none;">*</span></label>
             <textarea class="movil-input" id="anadirHoraComentario" rows="3" style="height:auto;padding:10px 14px;resize:vertical;overflow-y:hidden;" placeholder="Escribe o dicta un comentario…" oninput="autoAjustarTextareaMovil(this)"></textarea>
             <div class="dictado-box">
               <button type="button" class="btn-microfono" id="btnMicrofono" onclick="iniciarDictadoSimulado()">
