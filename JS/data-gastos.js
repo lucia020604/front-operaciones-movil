@@ -1028,6 +1028,318 @@ function operadoresConDiasABordo(desdeISO, hastaISO) {
 })();
 
 // =================================================
+// DATOS DE PRUEBA — JORNADAS DEL PERÍODO ACTUAL (10/11/2026) de varios
+// operadores, con distintos estados de reporte para ver "Jornadas iniciadas"
+// en cada caso: todo registrado / falta Cena / solo movilidad / nada
+// registrado / agregado posterior. Solo días ya pasados; nunca pisa una
+// jornada que el usuario ya haya creado. Corre una sola vez.
+// =================================================
+(function sembrarJornadasPeriodoActualEjemplos() {
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof obtenerUsuarioPorNombre !== 'function') return;
+
+  const hoyISODia = new Date().toISOString().slice(0, 10);
+  const F = '2026-11-10';
+  const jornadas = [
+    { usuario: 'j.ramos', inicio: '07:00', fin: '19:30', lugar: 'Callao',
+      alimentos: [['Desayuno', '07:20', 8], ['Almuerzo', '13:10', 20], ['Cena', '19:30', 15]],
+      movilidad: [['Taxi Seguro Callao', 'Callao', 'Terminal Callao', 'Traslado a muelle', 15]] },
+    { usuario: 'b.jimenez', inicio: '06:45', fin: '18:30', lugar: 'Pisco',
+      alimentos: [['Desayuno', '07:00', 8], ['Almuerzo', '13:00', 18]],
+      movilidad: [] },
+    { usuario: 'm.juarez', inicio: '08:00', fin: '17:00', lugar: 'Supe',
+      alimentos: [],
+      movilidad: [['Taxi Seguro Supe', 'Supe', 'Supe Puerto', 'Traslado a operación', 12]] },
+    { usuario: 'j.solis', inicio: '07:30', fin: '17:30', lugar: 'Callao',
+      alimentos: [], movilidad: [] },
+    { usuario: 'l.paredes', inicio: '07:10', fin: '18:00', lugar: 'Callao', posterior: true,
+      alimentos: [['Desayuno', '07:30', 8], ['Almuerzo', '13:20', 19]],
+      movilidad: [['Transportes Callao', 'Callao', 'Terminal Callao', 'Cambio de terminal', 10]] }
+  ];
+
+  jornadas.forEach(dia => {
+    if (F >= hoyISODia) return; // defensa: nunca sembrar hoy ni futuro
+    const usuario = dia.usuario;
+    if (!obtenerUsuarioPorNombre(usuario)) return;
+    const claveJornada = `${usuario}_${F}`;
+    // No pisa lo que el usuario ya registró; sí reemplaza la jornada genérica 'demo' (08:00–17:00) que se crea sola para ayer.
+    const existente = JORNADAS_MOVIL_DEMO[claveJornada];
+    if (existente && !existente.demo) return;
+
+    const fechaDD = fechaISOaDDMMYYYY(F);
+    const inicioISO = `${F}T${dia.inicio}:00.000Z`;
+    const finISO = `${F}T${dia.fin}:00.000Z`;
+    JORNADAS_MOVIL_DEMO[claveJornada] = {
+      id: claveJornada, usuario, fecha: F,
+      inicio: { hora: dia.inicio, fecha: fechaDD, fechaHoraISO: inicioISO, gps: null, fuente: 'marcada', sincronizado: true, sincronizadoEn: inicioISO },
+      fin: { hora: dia.fin, fecha: fechaDD, fechaHoraISO: finISO, gps: null, fuente: 'marcada', sincronizado: true, sincronizadoEn: finISO },
+      estado: 'cerrada', operaciones: [],
+      horas: calcularHorasJornada({ fechaHoraISO: inicioISO }, { fechaHoraISO: finISO })
+    };
+    const jornada = JORNADAS_MOVIL_DEMO[claveJornada];
+    const periodo = asegurarReporteGasto(usuario, F);
+    const codigoAlim = obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id).codigo;
+    const codigoMov = obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo;
+    const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(usuario) : [];
+    const cliente = operaciones.length ? operaciones.map(o => o.cliente).join(' / ') : '—';
+    const operacionPer = operaciones.length ? operaciones.map(o => o.per).join(' / ') : '—';
+
+    const detalleAlim = obtenerDetalleGastoPorTipo('Alimentos', periodo.ids['Alimentos']);
+    dia.alimentos.forEach(([comida, hora, costo]) => {
+      if (detalleAlim.grilla.some(f => f.fecha === fechaDD && f.comida === comida)) return;
+      const posterior = !!dia.posterior && comida === 'Almuerzo';
+      detalleAlim.grilla.push({
+        fecha: fechaDD, comida, lugar: dia.lugar, cliente, operacionPer,
+        jornadaId: jornada.id, codigoJornada: codigoAlim, hora, costo,
+        evidencia: ['Evidencia 1'], sinSustento: false,
+        agregadoPosterior: posterior,
+        justificacion: posterior ? 'Olvidé registrarlo el mismo día' : '',
+        agregadoEn: posterior ? `${F}T20:00:00.000Z` : null
+      });
+    });
+    const detalleMov = obtenerDetalleGastoPorTipo('Movilidad', periodo.ids['Movilidad']);
+    dia.movilidad.forEach(([empresa, partida, destino, motivo, importe]) => {
+      if (detalleMov.grilla.some(f => f.fecha === fechaDD && f.empresa === empresa && f.motivo === motivo)) return;
+      detalleMov.grilla.push({
+        fecha: fechaDD, empresa, distritoPartida: partida, distritoDestino: destino, motivo,
+        importeDia: importe, totalDia: importe,
+        jornadaId: jornada.id, codigoJornada: codigoMov,
+        evidencia: ['Evidencia 1'], sinSustento: false,
+        agregadoPosterior: false, justificacion: '', agregadoEn: null
+      });
+    });
+  });
+
+  guardarJornadasMovil();
+  guardarEstadoGastos();
+})();
+
+// =================================================
+// DATOS DE PRUEBA — PRECINTOS USADOS EL 10/11/2026 (período actual), para
+// que "Jornadas iniciadas" muestre precintos usados/scrap en cada caso.
+// Crea un lote (PRE26000100) con sus asignaciones y los usos/scrap de ese
+// día; idempotente (si el lote ya existe no hace nada).
+// =================================================
+(function sembrarPrecintosUsadosPeriodoActual() {
+  if (typeof PRECINTOS_REGISTROS_DEMO === 'undefined' || typeof ASIGNACIONES_PRECINTOS_DEMO === 'undefined' || typeof GENERAR_REGISTROS_PRECINTOS_DEMO === 'undefined') return;
+  const CODIGO = 'PRE26000100';
+  if (PRECINTOS_REGISTROS_DEMO.some(r => r.codigo === CODIGO)) return;
+  const F = '10/11/2026';
+  const hoyISODia = new Date().toISOString().slice(0, 10);
+  if (fechaDDMMYYYYaISO(F) >= hoyISODia) return; // nunca hoy ni futuro
+
+  const K = n => 'R-9' + String(n).padStart(4, '0');
+  const lista = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => K(a + i));
+  PRECINTOS_REGISTROS_DEMO.push({
+    codigo: CODIGO, fecha: '09/11/2026', estado: 'Registrado', material: 'Plástico',
+    ingresadoPor: 's.echavarria', precintos: lista(1, 10)
+  });
+
+  const maxId = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0);
+  const nro = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, parseInt(String(a.codigo).replace(/\D/g, ''), 10) || 0), 0);
+  const nroGrp = GENERAR_REGISTROS_PRECINTOS_DEMO.reduce((m, r) => Math.max(m, parseInt(String(r.numero).replace(/\D/g, ''), 10) || 0), 0);
+
+  const casos = [
+    { usuario: 'j.ramos', precintos: lista(1, 4), usados: lista(1, 4), scrap: [], viaje: 'V-2601', tipo: 'Descarga / M/N Naviera del Sur' },
+    { usuario: 'b.jimenez', precintos: lista(5, 7), usados: lista(5, 6), scrap: [K(7)], viaje: 'V-2602', tipo: 'Carga / M/N Pacífico I' },
+    { usuario: 'l.paredes', precintos: lista(8, 10), usados: [K(8)], scrap: [], viaje: 'V-2603', tipo: 'Descarga / M/N Callao Express' }
+  ];
+  casos.forEach((c, i) => {
+    if (typeof obtenerUsuarioPorNombre === 'function' && !obtenerUsuarioPorNombre(c.usuario)) return;
+    const id = maxId + 1 + i;
+    const codigo = 'ASG' + String(nro + 1 + i).padStart(8, '0');
+    ASIGNACIONES_PRECINTOS_DEMO.push({
+      id, codigo, registroCodigos: [CODIGO], fecha: '09/11/2026',
+      entregadoPor: 's.echavarria', recibidoPor: c.usuario,
+      precintos: c.precintos, cantidad: c.precintos.length,
+      scrap: c.scrap.map(p => ({ precinto: p, fecha: F, colaborador: c.usuario, motivo: 'Se rompió al momento de instalarlo.' })),
+      motivo: 'Servicio ' + c.tipo.split('/ ')[1], observaciones: ''
+    });
+    GENERAR_REGISTROS_PRECINTOS_DEMO.push({
+      registroCodigos: [CODIGO], numero: 'GRP' + String(nroGrp + 1 + i).padStart(8, '0'),
+      fechaEmision: '09/11/2026', fechaInicio: '09/11/2026', fechaFin: '', asignacionId: id, estado: 'Pendiente',
+      detalle: c.usados.map(p => ({ colaborador: c.usuario, precinto: p, viaje: c.viaje, fecha: F, observacion: '', tipoOperacion: c.tipo, terminal: 'Terminal Callao' }))
+    });
+  });
+  tgGuardarCatalogo('precintosRegistrosData', PRECINTOS_REGISTROS_DEMO);
+  tgGuardarCatalogo('precintosAsignacionesData', ASIGNACIONES_PRECINTOS_DEMO);
+  tgGuardarCatalogo('precintosGenerarRegistrosData', GENERAR_REGISTROS_PRECINTOS_DEMO);
+})();
+
+// =================================================
+// DATOS DE PRUEBA — HISTORIAL DE REPORTES (período anterior 10/10 al 09/11/2026)
+// para el módulo Reportes: varias jornadas por operador con Alimentos y
+// Movilidad (con y sin sustento, agregados posteriores) y Días a Bordo
+// (jornadas de 12 h o más con precintos usados). Solo días pasados;
+// idempotente por jornada/fila y nunca pisa lo que el usuario ya registró.
+// =================================================
+(function sembrarHistorialReportesEjemplos() {
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof obtenerUsuarioPorNombre !== 'function') return;
+  const hoyISODia = new Date().toISOString().slice(0, 10);
+
+  // --- Lote de precintos para los Días a Bordo de ejemplo ---
+  const CODIGO_LOTE = 'PRE26000101';
+  if (typeof PRECINTOS_REGISTROS_DEMO !== 'undefined' && !PRECINTOS_REGISTROS_DEMO.some(r => r.codigo === CODIGO_LOTE)) {
+    const R = n => 'R-91' + String(n).padStart(3, '0');
+    PRECINTOS_REGISTROS_DEMO.push({ codigo: CODIGO_LOTE, fecha: '12/10/2026', estado: 'Registrado', material: 'Plástico', ingresadoPor: 's.echavarria', precintos: [1, 2, 3, 4, 5, 6].map(R) });
+    const maxId = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0);
+    const nro = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, parseInt(String(a.codigo).replace(/\D/g, ''), 10) || 0), 0);
+    const nroGrp = GENERAR_REGISTROS_PRECINTOS_DEMO.reduce((m, r) => Math.max(m, parseInt(String(r.numero).replace(/\D/g, ''), 10) || 0), 0);
+    [
+      { usuario: 'j.ramos', precintos: [1, 2, 3, 4].map(R), usos: [[R(1), '14/10/2026', 'V-2501'], [R(2), '14/10/2026', 'V-2501'], [R(3), '28/10/2026', 'V-2504'], [R(4), '28/10/2026', 'V-2504']], tipo: 'Descarga / M/N Naviera del Sur' },
+      { usuario: 'l.paredes', precintos: [5, 6].map(R), usos: [[R(5), '21/10/2026', 'V-2502'], [R(6), '04/11/2026', 'V-2506']], tipo: 'Carga / M/N Callao Express' }
+    ].forEach((c, i) => {
+      if (!obtenerUsuarioPorNombre(c.usuario)) return;
+      const id = maxId + 1 + i;
+      ASIGNACIONES_PRECINTOS_DEMO.push({
+        id, codigo: 'ASG' + String(nro + 1 + i).padStart(8, '0'), registroCodigos: [CODIGO_LOTE], fecha: '12/10/2026',
+        entregadoPor: 's.echavarria', recibidoPor: c.usuario, precintos: c.precintos, cantidad: c.precintos.length,
+        motivo: 'Servicio ' + c.tipo.split('/ ')[1], observaciones: ''
+      });
+      GENERAR_REGISTROS_PRECINTOS_DEMO.push({
+        registroCodigos: [CODIGO_LOTE], numero: 'GRP' + String(nroGrp + 1 + i).padStart(8, '0'),
+        fechaEmision: '12/10/2026', fechaInicio: '12/10/2026', fechaFin: '', asignacionId: id, estado: 'Pendiente',
+        detalle: c.usos.map(([p, f, v]) => ({ colaborador: c.usuario, precinto: p, viaje: v, fecha: f, observacion: '', tipoOperacion: c.tipo, terminal: 'Terminal Callao' }))
+      });
+    });
+    tgGuardarCatalogo('precintosRegistrosData', PRECINTOS_REGISTROS_DEMO);
+    tgGuardarCatalogo('precintosAsignacionesData', ASIGNACIONES_PRECINTOS_DEMO);
+    tgGuardarCatalogo('precintosGenerarRegistrosData', GENERAR_REGISTROS_PRECINTOS_DEMO);
+  }
+
+  // --- Jornadas + Alimentos + Movilidad ---
+  // al: [comida, hora, costo, sinSustento?]  mo: [empresa, partida, destino, motivo, importe, sinSustento?]
+  const largo = { inicio: '07:00', fin: '19:30' }, normal = { inicio: '07:30', fin: '17:30' };
+  const usuarios = {
+    'j.ramos': { cliente: 'Naviera del Sur S.A.', per: 'PER/09634-25', lugar: 'Callao', dias: [
+      ['2026-10-14', largo, [['Desayuno', '07:20', 8], ['Almuerzo', '13:10', 20], ['Cena', '19:30', 15]], [['Taxi Seguro Callao', 'Callao', 'Terminal Callao', 'Traslado a muelle', 15]]],
+      ['2026-10-21', normal, [['Desayuno', '07:45', 7, true], ['Almuerzo', '13:00', 19]], [['Taxi Seguro Callao', 'Terminal Callao', 'Callao', 'Retorno de operación', 12]]],
+      ['2026-10-28', largo, [['Desayuno', '07:10', 8], ['Almuerzo', '13:15', 20], ['Cena', '19:20', 16]], [['Taxi Seguro Callao', 'Callao', 'Terminal Callao', 'Traslado a muelle', 14], ['Taxi Seguro Callao', 'Terminal Callao', 'Callao', 'Retorno de operación', 14]]],
+      ['2026-11-04', normal, [['Almuerzo', '12:50', 18]], []]
+    ] },
+    'b.jimenez': { cliente: 'Naviera del Pacífico S.A.', per: 'PER/09474-26', lugar: 'Pisco', dias: [
+      ['2026-10-13', normal, [['Desayuno', '07:00', 8], ['Almuerzo', '13:00', 18]], [['Taxi Seguro Pisco', 'Pisco', 'Terminal Pisco', 'Traslado a operación', 14]]],
+      ['2026-10-20', normal, [['Almuerzo', '13:20', 19], ['Cena', '18:00', 14]], []],
+      ['2026-11-03', normal, [['Desayuno', '07:15', 8], ['Almuerzo', '13:05', 20]], [['Taxi Seguro Pisco', 'Terminal Pisco', 'Pisco', 'Retorno de operación', 16, true]]]
+    ] },
+    'm.juarez': { cliente: 'Peru LNG', per: 'PER/09476-26', lugar: 'Supe', dias: [
+      ['2026-10-15', normal, [['Desayuno', '07:30', 8], ['Almuerzo', '13:00', 17]], [['Taxi Seguro Supe', 'Supe', 'Supe Puerto', 'Traslado a muelle', 12]]],
+      ['2026-10-27', normal, [['Almuerzo', '12:45', 18], ['Cena', '18:15', 15]], [['Taxi Seguro Supe', 'Supe Puerto', 'Supe', 'Retorno de operación', 10]]]
+    ] },
+    'j.solis': { cliente: 'Petroperú', per: 'PER/09477-26', lugar: 'Talara', dias: [
+      ['2026-10-16', normal, [['Desayuno', '07:20', 8], ['Almuerzo', '13:10', 19], ['Cena', '18:40', 15]], [['Mototaxi Talara', 'Talara', 'Terminal Talara', 'Traslado a operación', 8]]],
+      ['2026-11-05', normal, [['Almuerzo', '13:00', 20]], []]
+    ] },
+    'l.paredes': { cliente: 'Sandra Motors', per: 'PER/09473-26', lugar: 'Callao', dias: [
+      ['2026-10-12', normal, [['Desayuno', '07:30', 8], ['Almuerzo', '13:20', 19]], [['Transportes Callao', 'Callao', 'Terminal Callao', 'Cambio de terminal', 10]]],
+      ['2026-10-21', largo, [['Desayuno', '07:10', 8], ['Almuerzo', '13:00', 20], ['Cena', '19:30', 16]], [['Transportes Callao', 'Callao', 'Terminal Callao', 'Traslado a muelle', 12], ['Transportes Callao', 'Terminal Callao', 'Callao', 'Retorno de operación', 12]]],
+      ['2026-11-04', largo, [['Desayuno', '07:20', 8, true], ['Almuerzo', '13:10', 20]], [['Transportes Callao', 'Callao', 'Terminal Callao', 'Traslado a muelle', 12]]]
+    ] }
+  };
+
+  Object.keys(usuarios).forEach(usuario => {
+    if (!obtenerUsuarioPorNombre(usuario)) return;
+    const u = usuarios[usuario];
+    u.dias.forEach(([fechaISO, horario, alimentos, movilidad]) => {
+      if (fechaISO >= hoyISODia) return; // nunca hoy ni futuro
+      const fechaDD = fechaISOaDDMMYYYY(fechaISO);
+      const claveJornada = usuario + '_' + fechaISO;
+      const existente = JORNADAS_MOVIL_DEMO[claveJornada];
+      if (existente && !existente.demo && !existente.backfill) return; // lo ya registrado se respeta
+      const inicioISO = fechaISO + 'T' + horario.inicio + ':00.000Z';
+      const finISO = fechaISO + 'T' + horario.fin + ':00.000Z';
+      JORNADAS_MOVIL_DEMO[claveJornada] = {
+        id: claveJornada, usuario, fecha: fechaISO,
+        inicio: { hora: horario.inicio, fecha: fechaDD, fechaHoraISO: inicioISO, gps: null, ubicacionTexto: u.lugar, fuente: 'marcada', sincronizado: true, sincronizadoEn: inicioISO },
+        fin: { hora: horario.fin, fecha: fechaDD, fechaHoraISO: finISO, gps: null, ubicacionTexto: u.lugar, fuente: 'marcada', sincronizado: true, sincronizadoEn: finISO },
+        estado: 'cerrada', operaciones: [],
+        horas: calcularHorasJornada({ fechaHoraISO: inicioISO }, { fechaHoraISO: finISO })
+      };
+      const jornada = JORNADAS_MOVIL_DEMO[claveJornada];
+      const periodo = asegurarReporteGasto(usuario, fechaISO);
+      const codigoAlim = obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id).codigo;
+      const codigoMov = obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo;
+
+      const detalleAlim = obtenerDetalleGastoPorTipo('Alimentos', periodo.ids['Alimentos']);
+      alimentos.forEach(([comida, hora, costo, sinSustento]) => {
+        if (detalleAlim.grilla.some(f => f.fecha === fechaDD && f.comida === comida)) return;
+        detalleAlim.grilla.push({
+          fecha: fechaDD, comida, lugar: u.lugar, cliente: u.cliente, operacionPer: u.per,
+          jornadaId: jornada.id, codigoJornada: codigoAlim, hora, costo,
+          evidencia: sinSustento ? [] : ['Evidencia 1'], sinSustento: !!sinSustento,
+          agregadoPosterior: false, justificacion: '', agregadoEn: null
+        });
+      });
+      const detalleMov = obtenerDetalleGastoPorTipo('Movilidad', periodo.ids['Movilidad']);
+      movilidad.forEach(([empresa, partida, destino, motivo, importe, sinSustento]) => {
+        if (detalleMov.grilla.some(f => f.fecha === fechaDD && f.empresa === empresa && f.motivo === motivo)) return;
+        detalleMov.grilla.push({
+          fecha: fechaDD, empresa, distritoPartida: partida, distritoDestino: destino, motivo,
+          importeDia: importe, totalDia: importe, cliente: u.cliente, operacionPer: u.per,
+          jornadaId: jornada.id, codigoJornada: codigoMov,
+          evidencia: sinSustento ? [] : ['Evidencia 1'], sinSustento: !!sinSustento,
+          agregadoPosterior: false, justificacion: '', agregadoEn: null
+        });
+      });
+    });
+  });
+
+  guardarJornadasMovil();
+  guardarEstadoGastos();
+})();
+
+// =================================================
+// DATOS DE PRUEBA — PRECINTOS UTILIZADOS POR LOS OPERADORES CON OPERACIÓN
+// ASIGNADA (j.torres, j.gomez, r.bravo, e.allccaco), el 10/11/2026. Cada uno
+// recibe un lote con precintos usados (con el viaje/terminal de su
+// operación), alguno en scrap y alguno todavía asignado sin usar — se ven
+// en "Jornadas iniciadas", Operaciones (Asignar Precinto) y Reporte de
+// Precintos. Idempotente (lote PRE26000102).
+// =================================================
+(function sembrarPrecintosUtilizadosOperadores() {
+  if (typeof PRECINTOS_REGISTROS_DEMO === 'undefined' || typeof ASIGNACIONES_PRECINTOS_DEMO === 'undefined' || typeof GENERAR_REGISTROS_PRECINTOS_DEMO === 'undefined') return;
+  const CODIGO = 'PRE26000102';
+  if (PRECINTOS_REGISTROS_DEMO.some(r => r.codigo === CODIGO)) return;
+  const F = '10/11/2026';
+  if (fechaDDMMYYYYaISO(F) >= new Date().toISOString().slice(0, 10)) return; // nunca hoy ni futuro
+
+  const S = n => 'S-92' + String(n).padStart(3, '0');
+  const casos = [
+    { usuario: 'j.torres', desde: 1, total: 6, usados: 3, scrap: 1, viaje: 'V-2287', tipo: 'Descarga / M/N Naviera del Sur', terminal: 'Terminal Portuario Multipropósito Muelle Norte' },
+    { usuario: 'j.gomez', desde: 7, total: 5, usados: 3, scrap: 0, viaje: 'V-2401', tipo: 'Descarga / M/N Cordillera', terminal: 'Terminal Norte' },
+    { usuario: 'r.bravo', desde: 12, total: 5, usados: 2, scrap: 1, viaje: 'V-2214', tipo: 'Descarga / M/N Costa Azul', terminal: 'Supe' },
+    { usuario: 'e.allccaco', desde: 17, total: 4, usados: 2, scrap: 0, viaje: 'V-2201', tipo: 'Carga / M/N Naviera del Sur', terminal: 'Supe' }
+  ].filter(c => typeof obtenerUsuarioPorNombre !== 'function' || obtenerUsuarioPorNombre(c.usuario));
+  if (!casos.length) return;
+
+  const todos = [];
+  casos.forEach(c => { c.lista = Array.from({ length: c.total }, (_, i) => S(c.desde + i)); todos.push(...c.lista); });
+  PRECINTOS_REGISTROS_DEMO.push({ codigo: CODIGO, fecha: '09/11/2026', estado: 'Registrado', material: 'Plástico', ingresadoPor: 's.echavarria', precintos: todos });
+
+  const maxId = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, Number(a.id) || 0), 0);
+  const nro = ASIGNACIONES_PRECINTOS_DEMO.reduce((m, a) => Math.max(m, parseInt(String(a.codigo).replace(/\D/g, ''), 10) || 0), 0);
+  const nroGrp = GENERAR_REGISTROS_PRECINTOS_DEMO.reduce((m, r) => Math.max(m, parseInt(String(r.numero).replace(/\D/g, ''), 10) || 0), 0);
+  casos.forEach((c, i) => {
+    const id = maxId + 1 + i;
+    const usados = c.lista.slice(0, c.usados);
+    const scrap = c.lista.slice(c.usados, c.usados + c.scrap); // el resto queda asignado, sin usar
+    ASIGNACIONES_PRECINTOS_DEMO.push({
+      id, codigo: 'ASG' + String(nro + 1 + i).padStart(8, '0'), registroCodigos: [CODIGO], fecha: '09/11/2026',
+      entregadoPor: 's.echavarria', recibidoPor: c.usuario, precintos: c.lista, cantidad: c.lista.length,
+      scrap: scrap.map(p => ({ precinto: p, fecha: F, colaborador: c.usuario, motivo: 'Se rompió al momento de instalarlo.' })),
+      motivo: 'Servicio ' + c.tipo.split('/ ')[1], observaciones: ''
+    });
+    GENERAR_REGISTROS_PRECINTOS_DEMO.push({
+      registroCodigos: [CODIGO], numero: 'GRP' + String(nroGrp + 1 + i).padStart(8, '0'),
+      fechaEmision: '09/11/2026', fechaInicio: '09/11/2026', fechaFin: '', asignacionId: id, estado: 'Pendiente',
+      detalle: usados.map(p => ({ colaborador: c.usuario, precinto: p, viaje: c.viaje, fecha: F, observacion: '', tipoOperacion: c.tipo, terminal: c.terminal }))
+    });
+  });
+  tgGuardarCatalogo('precintosRegistrosData', PRECINTOS_REGISTROS_DEMO);
+  tgGuardarCatalogo('precintosAsignacionesData', ASIGNACIONES_PRECINTOS_DEMO);
+  tgGuardarCatalogo('precintosGenerarRegistrosData', GENERAR_REGISTROS_PRECINTOS_DEMO);
+})();
+
+// =================================================
 // COMIDAS OLVIDADAS (PROMPT_GASTOS_PENDIENTES_SPRINT4 §2) — jornadas YA
 // CERRADAS, dentro del plazo de olvidos (CONFIG_JORNADA_DEMO.
 // plazoOlvidoHoras desde que cerraron), con una comida habilitada por el
@@ -1132,3 +1444,356 @@ function obtenerReportesNoGeneradosOperador(usuario) {
 
   return avisos.sort((a, b) => b.fechaISO.localeCompare(a.fechaISO));
 }
+
+// =================================================
+// ESCENARIOS DE PRUEBA — JORNADA OLVIDADA / GASTO OLVIDADO (usuario
+// j.torres). Las fechas son RELATIVAS a hoy para que los plazos
+// (CONFIG_JORNADA_DEMO.plazoOlvidoHoras, 48 h por defecto, contado desde el
+// fin de cada día) siempre den estos casos:
+//   · Ayer      → jornada marcada (07:30–17:30) con solo el Desayuno
+//                 registrado: faltan Almuerzo y Cena (gasto olvidado,
+//                 pide justificación; editable, dentro del plazo).
+//   · Hace 2 d. → SIN jornada, dentro del plazo: aparece "Declarar jornada".
+//   · Hace 3 d. → SIN jornada, plazo vencido: no se puede registrar.
+//   · Hace 4 d. → jornada DECLARADA con gastos agregados después (solo
+//                 ver/descargar, fuera de plazo).
+//   · Hace 5 d. → jornada que inició 12:00 (Desayuno fuera de corte) con
+//                 solo Almuerzo y Cena (solo ver, fuera de plazo).
+//   · Hace 6 d. → jornada normal con Alimentos y Movilidad completos.
+// Corre una vez (flag en localStorage); para repetirlo, borra la clave
+// "seedEscenariosJornadaTorresV1" y recarga.
+// =================================================
+(function sembrarEscenariosJornadaTorres() {
+  const FLAG = 'seedEscenariosJornadaTorresV1';
+  if (localStorage.getItem(FLAG)) return;
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof obtenerUsuarioPorNombre !== 'function') return;
+  const usuario = 'j.torres';
+  if (!obtenerUsuarioPorNombre(usuario)) { localStorage.setItem(FLAG, '1'); return; }
+
+  const pad = n => String(n).padStart(2, '0');
+  const isoHace = n => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(usuario) : [];
+  const cliente = operaciones.length ? operaciones.map(o => o.cliente).join(' / ') : '—';
+  const operacionPer = operaciones.length ? operaciones.map(o => o.per).join(' / ') : '—';
+
+  // Hace 2 y 3 días NO debe haber jornada (una demo previa pudo crearla).
+  [2, 3].forEach(n => {
+    const clave = `${usuario}_${isoHace(n)}`;
+    if (JORNADAS_MOVIL_DEMO[clave] && JORNADAS_MOVIL_DEMO[clave].demo) delete JORNADAS_MOVIL_DEMO[clave];
+  });
+
+  const bloqueHora = (fechaISO, hora, fuente) => ({
+    hora, horaLarga: horaA12(hora), fecha: fechaISOaDDMMYYYY(fechaISO), fechaHoraISO: `${fechaISO}T${hora}:00`,
+    ubicacionTexto: fuente === 'declarada' ? 'Jornada declarada manualmente' : 'Ubicación registrada', fuente, sincronizado: true
+  });
+  const crearJornada = (n, inicio, fin, extra) => {
+    const fechaISO = isoHace(n), clave = `${usuario}_${fechaISO}`;
+    const fuente = extra && extra.declarada ? 'declarada' : 'marcada';
+    const j = Object.assign({
+      id: clave, usuario, fecha: fechaISO,
+      inicio: bloqueHora(fechaISO, inicio, fuente), fin: bloqueHora(fechaISO, fin, fuente),
+      estado: 'cerrada', operaciones: operaciones.slice(0, 3)
+    }, extra || {});
+    j.horas = calcularHorasJornada(j.inicio, j.fin);
+    JORNADAS_MOVIL_DEMO[clave] = j;
+  };
+
+  const cargarGastos = (n, alimentos, movilidad, posterior) => {
+    const fechaISO = isoHace(n), fechaDD = fechaISOaDDMMYYYY(fechaISO);
+    const jornada = JORNADAS_MOVIL_DEMO[`${usuario}_${fechaISO}`];
+    const periodo = asegurarReporteGasto(usuario, fechaISO);
+    const extra = posterior
+      ? { agregadoPosterior: true, justificacion: posterior, agregadoEn: new Date().toISOString() }
+      : { agregadoPosterior: false, justificacion: '', agregadoEn: null };
+    const detAlim = obtenerDetalleGastoPorTipo('Alimentos', periodo.ids['Alimentos']);
+    const codAlim = obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id).codigo;
+    alimentos.forEach(a => {
+      if (detAlim.grilla.some(f => f.fecha === fechaDD && f.comida === a.comida)) return;
+      detAlim.grilla.push(Object.assign({
+        fecha: fechaDD, comida: a.comida, lugar: a.lugar, cliente, operacionPer,
+        jornadaId: jornada.id, codigoJornada: codAlim, hora: a.hora, costo: a.costo,
+        evidencia: ['Evidencia 1'], sinSustento: false
+      }, extra));
+    });
+    if (!movilidad.length) return;
+    const detMov = obtenerDetalleGastoPorTipo('Movilidad', periodo.ids['Movilidad']);
+    const codMov = obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo;
+    movilidad.forEach(m => {
+      if (detMov.grilla.some(f => f.fecha === fechaDD && f.empresa === m.empresa && f.motivo === m.motivo)) return;
+      detMov.grilla.push(Object.assign({
+        fecha: fechaDD, empresa: m.empresa, distritoPartida: m.partida, distritoDestino: m.destino,
+        motivo: m.motivo, importeDia: m.importe, totalDia: m.importe,
+        jornadaId: jornada.id, codigoJornada: codMov, evidencia: ['Evidencia 1'], sinSustento: false
+      }, extra));
+    });
+  };
+
+  // Ayer: marcada 07:30–17:30, solo Desayuno registrado.
+  crearJornada(1, '07:30', '17:30', { demo: true });
+  cargarGastos(1, [{ comida: 'Desayuno', lugar: 'Terminal Norte', hora: '07:50', costo: 9.00 }], [], null);
+
+  // Hace 4 días: jornada declarada + gastos agregados después.
+  const justDeclarada = 'No marqué la jornada por falta de señal en el terminal.';
+  crearJornada(4, '07:30', '18:00', { declarada: true, declaradaEn: new Date().toISOString(), justificacion: justDeclarada });
+  cargarGastos(4,
+    [{ comida: 'Desayuno', lugar: 'Terminal Norte', hora: '07:45', costo: 8.00 }, { comida: 'Almuerzo', lugar: 'Terminal Norte', hora: '13:10', costo: 19.00 }],
+    [{ empresa: 'Taxi Seguro Norte', partida: 'Callao', destino: 'Terminal Norte', motivo: 'Traslado a operación', importe: 14.00 }],
+    justDeclarada);
+
+  // Hace 5 días: inició 12:00 → Desayuno fuera de corte; solo Almuerzo y Cena.
+  crearJornada(5, '12:00', '20:00');
+  cargarGastos(5,
+    [{ comida: 'Almuerzo', lugar: 'Terminal Norte', hora: '12:30', costo: 18.00 }, { comida: 'Cena', lugar: 'Terminal Norte', hora: '20:15', costo: 15.00 }],
+    [], null);
+
+  // Hace 6 días: jornada completa.
+  crearJornada(6, '07:00', '18:30');
+  cargarGastos(6,
+    [{ comida: 'Desayuno', lugar: 'Terminal Norte', hora: '07:20', costo: 8.00 }, { comida: 'Almuerzo', lugar: 'Terminal Norte', hora: '13:00', costo: 20.00 }, { comida: 'Cena', lugar: 'Terminal Norte', hora: '19:00', costo: 14.00 }],
+    [{ empresa: 'Taxi Seguro Norte', partida: 'Callao', destino: 'Terminal Norte', motivo: 'Traslado a muelle', importe: 15.00 }],
+    null);
+
+  guardarJornadasMovil();
+  guardarEstadoGastos();
+  localStorage.setItem(FLAG, '1');
+})();
+
+// =================================================
+// MÁS REGISTROS DE PRUEBA PARA j.torres — jornadas y reportes de períodos
+// ANTERIORES (se ven con las flechas ‹ › de la tarjeta de período, en
+// Generar y en Reportes). Fechas relativas a hoy; variedad de casos:
+// jornadas completas, solo algunas comidas, varios viajes en el día, gastos
+// agregados después con justificación y una jornada declarada. Corre una
+// vez (flag en localStorage): para repetirlo, borra la clave
+// "seedMasRegistrosJornadaTorresV1" y recarga.
+// =================================================
+(function sembrarMasRegistrosJornadaTorres() {
+  const FLAG = 'seedMasRegistrosJornadaTorresV1';
+  if (localStorage.getItem(FLAG)) return;
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof obtenerUsuarioPorNombre !== 'function') return;
+  const usuario = 'j.torres';
+  if (!obtenerUsuarioPorNombre(usuario)) { localStorage.setItem(FLAG, '1'); return; }
+
+  const pad = n => String(n).padStart(2, '0');
+  const isoHace = n => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(usuario) : [];
+  const cliente = operaciones.length ? operaciones.map(o => o.cliente).join(' / ') : '—';
+  const operacionPer = operaciones.length ? operaciones.map(o => o.per).join(' / ') : '—';
+
+  const bloqueHora = (fechaISO, hora, fuente) => ({
+    hora, horaLarga: horaA12(hora), fecha: fechaISOaDDMMYYYY(fechaISO), fechaHoraISO: `${fechaISO}T${hora}:00`,
+    ubicacionTexto: fuente === 'declarada' ? 'Jornada declarada manualmente' : 'Ubicación registrada', fuente, sincronizado: true
+  });
+
+  // [hace, inicio, fin, alimentos[[comida, lugar, hora, costo]], viajes[[empresa, partida, destino, motivo, importe]], extra]
+  const dias = [
+    [8,  '07:10', '18:00', [['Desayuno', 'Terminal Norte', '07:30', 9], ['Almuerzo', 'Terminal Norte', '13:05', 19], ['Cena', 'Callao', '18:30', 15]],
+         [['Taxi Seguro Norte', 'Callao', 'Terminal Norte', 'Traslado a muelle', 14], ['Taxi Seguro Norte', 'Terminal Norte', 'Callao', 'Retorno de operación', 14]]],
+    [9,  '08:00', '17:00', [['Desayuno', 'Callao', '08:20', 8], ['Almuerzo', 'Callao', '13:15', 18]], [['Transportes Callao', 'Callao', 'Muelle 5', 'Traslado a operación', 12]]],
+    [10, '06:30', '19:30', [['Desayuno', 'Terminal Norte', '06:50', 10], ['Almuerzo', 'Terminal Norte', '12:40', 20], ['Cena', 'Terminal Norte', '19:40', 16]],
+         [['Taxi Seguro Norte', 'Callao', 'Terminal Norte', 'Traslado a operación', 15]]],
+    [12, '12:00', '21:00', [['Almuerzo', 'Terminal Norte', '12:30', 18], ['Cena', 'Terminal Norte', '21:10', 15]], []],
+    [13, '07:00', '17:30', [['Desayuno', 'Supe', '07:20', 8], ['Almuerzo', 'Supe', '13:00', 19]],
+         [['Taxi Seguro Supe', 'Supe Puerto', 'Supe', 'Traslado a muelle', 10], ['Taxi Seguro Supe', 'Supe', 'Supe Puerto', 'Retorno de operación', 10], ['Taxi Seguro Supe', 'Supe Puerto', 'Terminal Norte', 'Cambio de terminal', 14]]],
+    [14, '07:40', '16:50', [['Desayuno', 'Terminal Norte', '08:00', 9]], [['Transportes Callao', 'Callao', 'Terminal Norte', 'Traslado a muelle', 13]]],
+    [15, '08:15', '18:20', [['Desayuno', 'Callao', '08:30', 8], ['Almuerzo', 'Callao', '13:20', 19], ['Cena', 'Callao', '18:40', 14]], [],
+         { posterior: 'Registré los consumos al día siguiente por falta de señal en el terminal.' }],
+    [16, '07:25', '17:40', [['Desayuno', 'Terminal Norte', '07:45', 9], ['Almuerzo', 'Terminal Norte', '13:10', 20]],
+         [['Taxi Seguro Norte', 'Callao', 'Terminal Norte', 'Traslado a operación', 14]], { declarada: 'No marqué la jornada: se me agotó la batería del celular.' }],
+    [19, '06:50', '18:10', [['Desayuno', 'Supe', '07:05', 8], ['Almuerzo', 'Supe', '12:50', 18], ['Cena', 'Supe', '18:20', 14]],
+         [['Taxi Seguro Supe', 'Supe Puerto', 'Supe', 'Traslado a muelle', 11], ['Taxi Seguro Supe', 'Supe', 'Supe Puerto', 'Retorno de operación', 11]]],
+    [21, '09:00', '17:00', [['Almuerzo', 'Pisco', '13:30', 19]], [['Transportes Pisco', 'Pisco', 'Terminal Portuario', 'Traslado a operación', 14]]],
+    [22, '07:00', '18:45', [['Desayuno', 'Pisco', '07:20', 9], ['Almuerzo', 'Pisco', '13:00', 20], ['Cena', 'Pisco', '19:00', 15]],
+         [['Transportes Pisco', 'Pisco', 'Terminal Portuario', 'Traslado a operación', 14], ['Transportes Pisco', 'Terminal Portuario', 'Pisco', 'Retorno de operación', 14]]],
+    // Un período más atrás
+    [38, '07:30', '17:30', [['Desayuno', 'Callao', '07:50', 8], ['Almuerzo', 'Callao', '13:10', 19]], [['Transportes Callao', 'Callao', 'Muelle 3', 'Traslado a muelle', 12]]],
+    [40, '06:45', '19:00', [['Desayuno', 'Supe', '07:00', 9], ['Almuerzo', 'Supe', '12:45', 18], ['Cena', 'Supe', '19:15', 15]], [['Taxi Seguro Supe', 'Supe', 'Supe Puerto', 'Traslado a operación', 10]]],
+    [43, '08:00', '16:30', [['Almuerzo', 'Terminal Norte', '13:00', 18]], []]
+  ];
+
+  dias.forEach(([n, inicio, fin, alimentos, viajes, extra]) => {
+    extra = extra || {};
+    const fechaISO = isoHace(n), fechaDD = fechaISOaDDMMYYYY(fechaISO), clave = `${usuario}_${fechaISO}`;
+    if (!JORNADAS_MOVIL_DEMO[clave]) {
+      const fuente = extra.declarada ? 'declarada' : 'marcada';
+      const j = {
+        id: clave, usuario, fecha: fechaISO,
+        inicio: bloqueHora(fechaISO, inicio, fuente), fin: bloqueHora(fechaISO, fin, fuente),
+        estado: 'cerrada', operaciones: operaciones.slice(0, 3)
+      };
+      if (extra.declarada) { j.declarada = true; j.declaradaEn = new Date().toISOString(); j.justificacion = extra.declarada; }
+      j.horas = calcularHorasJornada(j.inicio, j.fin);
+      JORNADAS_MOVIL_DEMO[clave] = j;
+    }
+    const jornada = JORNADAS_MOVIL_DEMO[clave];
+    const justificacion = extra.posterior || extra.declarada || '';
+    const posterior = justificacion
+      ? { agregadoPosterior: true, justificacion, agregadoEn: new Date().toISOString() }
+      : { agregadoPosterior: false, justificacion: '', agregadoEn: null };
+
+    const periodo = asegurarReporteGasto(usuario, fechaISO);
+    const detAlim = obtenerDetalleGastoPorTipo('Alimentos', periodo.ids['Alimentos']);
+    const codAlim = obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id).codigo;
+    alimentos.forEach(([comida, lugar, hora, costo]) => {
+      if (detAlim.grilla.some(f => f.fecha === fechaDD && f.comida === comida)) return;
+      detAlim.grilla.push(Object.assign({
+        fecha: fechaDD, comida, lugar, cliente, operacionPer,
+        jornadaId: jornada.id, codigoJornada: codAlim, hora, costo,
+        evidencia: ['Evidencia 1'], sinSustento: false
+      }, posterior));
+    });
+    if (viajes.length) {
+      const detMov = obtenerDetalleGastoPorTipo('Movilidad', periodo.ids['Movilidad']);
+      const codMov = obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo;
+      viajes.forEach(([empresa, partida, destino, motivo, importe]) => {
+        if (detMov.grilla.some(f => f.fecha === fechaDD && f.empresa === empresa && f.motivo === motivo)) return;
+        detMov.grilla.push(Object.assign({
+          fecha: fechaDD, empresa, distritoPartida: partida, distritoDestino: destino, motivo,
+          importeDia: importe, totalDia: importe,
+          jornadaId: jornada.id, codigoJornada: codMov, evidencia: ['Evidencia 1'], sinSustento: false
+        }, posterior));
+      });
+    }
+  });
+
+  guardarJornadasMovil();
+  guardarEstadoGastos();
+  localStorage.setItem(FLAG, '1');
+})();
+
+// =================================================
+// EJEMPLOS DE PRECINTOS USADOS Y SCRAP — j.torres. Reparte precintos que
+// todavía están "asignados" (sin uso) a sus jornadas de prueba (ver
+// sembrarMasRegistrosJornadaTorres), para ver y probar "Precintos usados" en
+// Generar: jornadas cerradas = solo consulta. Fechas relativas a hoy. Corre
+// una vez (flag en localStorage): para repetirlo, borra la clave
+// "seedPrecintosJornadaTorresV1" y recarga.
+// =================================================
+(function sembrarPrecintosJornadaTorres() {
+  const FLAG = 'seedPrecintosJornadaTorresV1';
+  if (localStorage.getItem(FLAG)) return;
+  if (typeof obtenerTodosLosPrecintosConEstado !== 'function' || typeof obtenerGenerarRegistroPorAsignacion !== 'function') return;
+  const usuario = 'j.torres';
+
+  // Precintos de j.torres que aún no tienen uso ni scrap, de su operación
+  // móvil (V-2287, Terminal Norte).
+  const libres = obtenerTodosLosPrecintosConEstado()
+    .filter(f => f.estado === 'asignado' && f.asignacion && f.asignacion.recibidoPor === usuario)
+    .map(f => f.precinto);
+  if (!libres.length) { localStorage.setItem(FLAG, '1'); return; }
+
+  const pad = n => String(n).padStart(2, '0');
+  const fechaHace = n => { const d = new Date(); d.setDate(d.getDate() - n); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; };
+  const op = (typeof OPERACIONES_ASIGNADAS_MOVIL_DEMO !== 'undefined' && OPERACIONES_ASIGNADAS_MOVIL_DEMO.find(o => o.nroViaje === 'V-2287')) || null;
+  const viaje = op ? op.nroViaje : 'V-2287';
+  const terminal = op ? op.terminal : 'Terminal Norte';
+  const per = op ? op.per : 'PER/09634-25';
+
+  // [hace N días, cantidad usados, cantidad scrap, motivo del scrap]
+  const plan = [
+    [4, 3, 0], [5, 2, 1, 'Sello roto al sacarlo del empaque; no se pudo instalar.'],
+    [6, 3, 0], [8, 2, 0], [9, 3, 1, 'Numeración ilegible; se reemplazó por otro.'],
+    [10, 2, 0], [13, 2, 0]
+  ];
+
+  plan.forEach(([n, usados, scrap, motivo]) => {
+    const fecha = fechaHace(n);
+    for (let i = 0; i < usados && libres.length; i++) {
+      const precinto = libres.shift();
+      const asignacion = obtenerAsignacionDePrecinto(precinto);
+      if (asignacion && !obtenerGenerarRegistroPorAsignacion(asignacion.id)) asegurarReportePrecinto(asignacion.id, asignacion.registroCodigos || []);
+      const registro = asignacion ? obtenerGenerarRegistroPorAsignacion(asignacion.id) : null;
+      if (!registro) continue;
+      registro.detalle.push({ colaborador: usuario, precinto, viaje, tipoOperacion: 'Descarga', terminal, fecha, observacion: '' });
+    }
+    for (let i = 0; i < scrap && libres.length; i++) {
+      const precinto = libres.shift();
+      const asignacion = obtenerAsignacionDePrecinto(precinto);
+      if (!asignacion) continue;
+      if (!asignacion.scrap) asignacion.scrap = [];
+      asignacion.scrap.push({ precinto, fecha, colaborador: usuario, motivo, per, terminal, viaje });
+    }
+  });
+
+  guardarEstadoPrecintos();
+  localStorage.setItem(FLAG, '1');
+})();
+
+// =================================================
+// EJEMPLOS CON EVIDENCIA — j.torres, ayer (período actual): una Cena con 2
+// evidencias y un viaje de Movilidad con 3, para ver cómo se muestran los
+// archivos adjuntos en Reportes (detalle de cada registro). Corre una vez
+// (flag en localStorage): para repetirlo, borra la clave
+// "seedEvidenciaTorresV1" y recarga.
+// =================================================
+(function sembrarEvidenciaJornadaTorres() {
+  const FLAG = 'seedEvidenciaTorresV1';
+  if (localStorage.getItem(FLAG)) return;
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof obtenerUsuarioPorNombre !== 'function') return;
+  const usuario = 'j.torres';
+  if (!obtenerUsuarioPorNombre(usuario)) { localStorage.setItem(FLAG, '1'); return; }
+
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const pad = n => String(n).padStart(2, '0');
+  const fechaISO = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fechaDD = fechaISOaDDMMYYYY(fechaISO);
+  const jornada = JORNADAS_MOVIL_DEMO[`${usuario}_${fechaISO}`];
+  if (!jornada) return; // se reintenta cuando exista la jornada de ayer
+
+  const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(usuario) : [];
+  const periodo = asegurarReporteGasto(usuario, fechaISO);
+
+  const detAlim = obtenerDetalleGastoPorTipo('Alimentos', periodo.ids['Alimentos']);
+  if (!detAlim.grilla.some(f => f.fecha === fechaDD && f.comida === 'Cena')) {
+    detAlim.grilla.push({
+      fecha: fechaDD, comida: 'Cena', lugar: 'Restaurante Terminal Norte',
+      cliente: operaciones.length ? operaciones.map(o => o.cliente).join(' / ') : '—',
+      operacionPer: operaciones.length ? operaciones.map(o => o.per).join(' / ') : '—',
+      jornadaId: jornada.id, codigoJornada: obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id).codigo,
+      hora: '18:10', costo: 14.00,
+      evidencia: ['Evidencia 1 (boleta-cena.jpg)', 'Evidencia 2 (ticket-pos.jpg)'], sinSustento: false,
+      agregadoPosterior: false, justificacion: '', agregadoEn: null
+    });
+  }
+
+  const detMov = obtenerDetalleGastoPorTipo('Movilidad', periodo.ids['Movilidad']);
+  if (!detMov.grilla.some(f => f.fecha === fechaDD && f.empresa === 'Taxi Seguro Norte')) {
+    detMov.grilla.push({
+      fecha: fechaDD, empresa: 'Taxi Seguro Norte', distritoPartida: 'Callao', distritoDestino: 'Terminal Norte',
+      motivo: 'Traslado a operación', horas: '1 hora', importeDia: 12.00, totalDia: 12.00,
+      jornadaId: jornada.id, codigoJornada: obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo,
+      evidencia: ['Evidencia 1 (recibo-taxi.jpg)', 'Evidencia 2 (captura-app.png)', 'Evidencia 3 (ruta-gps.png)'], sinSustento: false,
+      agregadoPosterior: false, justificacion: '', agregadoEn: null
+    });
+  }
+
+  guardarEstadoGastos();
+  localStorage.setItem(FLAG, '1');
+})();
+
+// =================================================
+// DATOS DE PRUEBA — DÍAS A BORDO DEL 10/11/2026 para los operadores con
+// operación asignada. Un Día a Bordo sale de una jornada cerrada de 12 h o
+// más (CONFIG_JORNADA_DEMO.horasMinimasDiaABordo) con un precinto usado ese
+// día (ver generarDiasABordoOperador). La jornada genérica 'demo' de ayer
+// (08:00–17:00, 9 h) no alcanzaba, así que se reemplaza por una de 07:00 a
+// 19:30; lo que el operador ya registró (Alimentos/Movilidad) no se toca.
+// =================================================
+(function sembrarJornadasLargasDiasABordo() {
+  if (typeof JORNADAS_MOVIL_DEMO === 'undefined' || typeof calcularHorasJornada !== 'function') return;
+  const F = '2026-11-10';
+  if (F >= new Date().toISOString().slice(0, 10)) return; // nunca hoy ni futuro
+  const fechaDD = fechaISOaDDMMYYYY(F);
+  let cambio = false;
+  ['j.torres', 'j.gomez', 'r.bravo', 'e.allccaco'].forEach(usuario => {
+    const j = JORNADAS_MOVIL_DEMO[usuario + '_' + F];
+    if (!j || !j.demo) return; // sin jornada genérica de ayer, o ya registrada por el usuario
+    const inicioISO = F + 'T07:00:00.000Z', finISO = F + 'T19:30:00.000Z';
+    j.inicio = { hora: '07:00', horaLarga: '07:00 am', fecha: fechaDD, fechaHoraISO: inicioISO, ubicacionTexto: 'Ubicación registrada', fuente: 'marcada', sincronizado: true };
+    j.fin = { hora: '19:30', horaLarga: '07:30 pm', fecha: fechaDD, fechaHoraISO: finISO, ubicacionTexto: 'Ubicación registrada', fuente: 'marcada', sincronizado: true };
+    j.horas = calcularHorasJornada({ fechaHoraISO: inicioISO }, { fechaHoraISO: finISO });
+    delete j.demo;
+    cambio = true;
+  });
+  if (cambio) guardarJornadasMovil();
+})();

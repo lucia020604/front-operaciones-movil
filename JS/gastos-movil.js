@@ -38,6 +38,107 @@ setInterval(actualizarHoraStatusBarGastos, 15000);
 let gastosMovilPeriodo = null;
 let gastosMovilUsuario = null;
 
+// Rango y nombre del período mostrado + estado de las flechas.
+// Selector de período de Reportes: el período actual y los anteriores con jornadas.
+function poblarSelectorPeriodoReportes() {
+  const sel = document.getElementById('reportesPeriodo');
+  if (!sel || !gastosMovilPeriodo) return;
+  const opciones = [];
+  let ref = hoyISO();
+  for (let i = 0; i < 36; i++) {
+    const pe = primerYUltimoDiaDelMes(ref);
+    if (i > 0 && !periodoTieneActividad(ref)) break;
+    const nombre = (typeof asegurarPeriodoGastoNombrado === 'function') ? asegurarPeriodoGastoNombrado(pe.primero, pe.ultimo) : `${pe.primero} al ${pe.ultimo}`;
+    opciones.push({ valor: fechaDDMMYYYYaISO(pe.primero), texto: String(nombre).replace(/^Período\s+/i, '') });
+    ref = desplazarFechaISO(fechaDDMMYYYYaISO(pe.primero), -1);
+  }
+  sel.innerHTML = opciones.map(o => `<option value="${o.valor}">${o.texto}</option>`).join('');
+  sel.value = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
+}
+
+// Elegir un período desde el selector (valor = primer día del período, ISO).
+function elegirPeriodoReportes(fechaISO) {
+  if (!fechaISO || fechaISO > hoyISO()) return;
+  gastosMovilPeriodo = asegurarReporteGasto(gastosMovilUsuario, fechaISO);
+  guardarEstadoGastos();
+  // El rango de fechas del filtro pertenecía al período anterior: se limpia.
+  reportesFechaFiltro = '';
+  const f = document.getElementById('reportesFecha');
+  if (f) f.value = '';
+  actualizarEtiquetaPeriodo();
+  renderTarjetasGastos();
+  renderReportesAccordion();
+}
+
+function actualizarEtiquetaPeriodo() {
+  const elPeriodo = document.getElementById('gastosPeriodoRango');
+  if (elPeriodo) elPeriodo.textContent = `${gastosMovilPeriodo.fechaDesde} al ${gastosMovilPeriodo.fechaHasta}`;
+  // Mismo nombre que ya maneja la web en Control de Precintos > Configuración
+  // > Configuración de Períodos — lo crea si hace falta (ver
+  // asegurarPeriodoGastoNombrado en data-gastos.js).
+  const nombrePeriodo = (typeof asegurarPeriodoGastoNombrado === 'function')
+    ? asegurarPeriodoGastoNombrado(gastosMovilPeriodo.fechaDesde, gastosMovilPeriodo.fechaHasta)
+    : `${gastosMovilPeriodo.fechaDesde} al ${gastosMovilPeriodo.fechaHasta}`;
+  setTexto('gastosPeriodoNombre', nombrePeriodo);
+
+  poblarSelectorPeriodoReportes();
+  const campoFecha = document.getElementById('reportesFecha');
+  if (campoFecha) {
+    campoFecha.min = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
+    campoFecha.max = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaHasta); // fin del período (10→09), no solo hasta hoy
+  }
+  const actual = esPeriodoActualGastos();
+  const sig = document.getElementById('btnPeriodoSiguiente');
+  if (sig) sig.disabled = actual;
+  const ant = document.getElementById('btnPeriodoAnterior');
+  if (ant) ant.disabled = !periodoTieneActividad(desplazarFechaISO(fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde), -1));
+
+}
+
+function desplazarFechaISO(fechaISO, dias) {
+  const d = new Date(`${fechaISO}T00:00:00`);
+  d.setDate(d.getDate() + dias);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function esPeriodoActualGastos() {
+  return primerYUltimoDiaDelMes(hoyISO()).primero === gastosMovilPeriodo.fechaDesde;
+}
+
+// Solo se navega a períodos donde el operador tiene jornadas (no se crean
+// reportes vacíos de períodos sin actividad).
+function periodoTieneActividad(fechaReferenciaISO) {
+  const { primero, ultimo } = primerYUltimoDiaDelMes(fechaReferenciaISO);
+  const desde = fechaDDMMYYYYaISO(primero), hasta = fechaDDMMYYYYaISO(ultimo);
+  return Object.values(JORNADAS_MOVIL_DEMO).some(j => j.usuario === gastosMovilUsuario && j.fecha >= desde && j.fecha <= hasta);
+}
+
+// Flechas ‹ › de la tarjeta de período: cambia el período mostrado (todo el
+// módulo trabaja contra gastosMovilPeriodo).
+function cambiarPeriodoGastos(delta) {
+  const referencia = delta < 0
+    ? desplazarFechaISO(fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde), -1)
+    : desplazarFechaISO(fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaHasta), 1);
+  if (referencia > hoyISO()) return;
+  if (delta < 0 && !periodoTieneActividad(referencia)) return;
+  gastosMovilPeriodo = asegurarReporteGasto(gastosMovilUsuario, referencia);
+  reportesFechaFiltro = ''; // la fecha elegida era del período anterior
+  const campoFecha = document.getElementById('reportesFecha');
+  if (campoFecha) campoFecha.value = '';
+  guardarEstadoGastos();
+  actualizarEtiquetaPeriodo();
+  renderTarjetasGastos();
+  renderReportesAccordion();
+}
+
+// Última fecha registrable del período mostrado: hoy, o el fin del período
+// si es uno anterior.
+function fechaMaxPeriodo() {
+  const hasta = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaHasta);
+  return hasta < hoyISO() ? hasta : hoyISO();
+}
+
 function inicializarGastosMovil() {
   const sesion = obtenerUsuarioActual();
   if (!sesion) { window.location.href = 'login-movil.html'; return; }
@@ -47,16 +148,7 @@ function inicializarGastosMovil() {
   gastosMovilPeriodo = asegurarReporteGasto(gastosMovilUsuario, hoyISO);
   guardarEstadoGastos();
 
-  const elPeriodo = document.getElementById('gastosPeriodoRango');
-  if (elPeriodo) elPeriodo.textContent = `${gastosMovilPeriodo.fechaDesde} al ${gastosMovilPeriodo.fechaHasta}`;
-  // Mismo nombre que ya maneja la web en Control de Precintos > Configuración
-  // > Configuración de Períodos — lo crea si hace falta (ver
-  // asegurarPeriodoGastoNombrado en data-gastos.js) para que el período de
-  // HOY quede nombrado aunque sea el primero de ese mes.
-  const nombrePeriodo = (typeof asegurarPeriodoGastoNombrado === 'function')
-    ? asegurarPeriodoGastoNombrado(gastosMovilPeriodo.fechaDesde, gastosMovilPeriodo.fechaHasta)
-    : `${gastosMovilPeriodo.fechaDesde} al ${gastosMovilPeriodo.fechaHasta}`;
-  setTexto('gastosPeriodoNombre', nombrePeriodo);
+  actualizarEtiquetaPeriodo();
 
   renderTarjetasGastos();
   renderReportesAccordion();
@@ -75,8 +167,9 @@ function inicializarGastosMovil() {
   // Viene de una notificación de olvido en Operaciones (§2) — abre directo
   // "Agregar gasto olvidado" en esa fecha, misma mecánica que "Jornadas
   // recientes".
-  const fechaOlvido = new URLSearchParams(window.location.search).get('olvido');
-  if (fechaOlvido && typeof irAJornadaDesdeGastos === 'function') irAJornadaDesdeGastos(fechaOlvido);
+  const parametros = new URLSearchParams(window.location.search);
+  const fechaOlvido = parametros.get('olvido');
+  if (fechaOlvido && typeof irAJornadaDesdeGastos === 'function') irAJornadaDesdeGastos(fechaOlvido, parametros.get('tipo'));
 }
 
 function guardarEncabezadoGastos() {
@@ -121,6 +214,11 @@ function renderTarjetaJornadaHoy() {
   const cont = document.getElementById('gastosJornadaCard');
   if (!cont) return;
   const jornada = (typeof obtenerJornadaActiva === 'function') ? obtenerJornadaActiva(gastosMovilUsuario) : null;
+  // La tarjeta de la jornada (y los reportes de la jornada) solo se muestran
+  // si la jornada del día ya inició y se está viendo el período actual.
+  const iniciada = !!(jornada && jornada.inicio);
+  cont.style.display = (iniciada && esPeriodoActualGastos()) ? '' : 'none';
+  if (!iniciada) return;
   // Operaciones asignadas: siempre las del operador (no varían si hubo o no
   // precintos ese día). Precintos usados sí es específico de la fecha de
   // esta jornada — se informan por separado (corrección pedida).
@@ -135,7 +233,11 @@ function renderTarjetaJornadaHoy() {
   const elPrecintos = document.getElementById('gastosJornadaPrecintos');
   const elPlazo = document.getElementById('gastosJornadaPlazoOlvido');
   const btnVerPrecintos = document.getElementById('btnVerPrecintosJornada');
-  if (btnVerPrecintos) btnVerPrecintos.style.display = precintos.length ? '' : 'none';
+  if (btnVerPrecintos) {
+    btnVerPrecintos.style.display = '';
+    const txt = document.getElementById('btnVerPrecintosTexto');
+    if (txt) txt.textContent = precintos.length ? `Precintos usados (${precintos.length})` : 'Precintos usados';
+  }
 
   elOps.textContent = textoOperacionesInvolucradas(operaciones);
 
@@ -184,10 +286,28 @@ let gruposPrecintosJornadaGastos = [];
 let precintosJornadaGastosTodasLasFilas = [];
 let precintosJornadaGastosTab = 'usado';
 
-function abrirModalPrecintosJornadaGastos() {
+let precintosJornadaGastosFecha = null;
+
+// Los precintos de una jornada se pueden consultar siempre, pero solo se
+// pueden quitar/corregir mientras la jornada NO esté cerrada.
+function precintosJornadaEditables() {
+  const j = jornadaDelGasto(precintosJornadaGastosFecha);
+  return !(j && j.estado === 'cerrada');
+}
+
+// fechaISO opcional: sin ella, la jornada activa (la de hoy).
+function abrirModalPrecintosJornadaGastos(fechaISO) {
   const jornada = (typeof obtenerJornadaActiva === 'function') ? obtenerJornadaActiva(gastosMovilUsuario) : null;
-  const fecha = jornada ? jornada.fecha : hoyISO();
-  precintosJornadaGastosTodasLasFilas = (typeof obtenerPrecintosDeJornada === 'function') ? obtenerPrecintosDeJornada(gastosMovilUsuario, fecha) : [];
+  precintosJornadaGastosFecha = fechaISO || (jornada ? jornada.fecha : hoyISO());
+  precintosJornadaGastosTodasLasFilas = (typeof obtenerPrecintosDeJornada === 'function') ? obtenerPrecintosDeJornada(gastosMovilUsuario, precintosJornadaGastosFecha) : [];
+  const nota = document.getElementById('precintosJornadaGastosNota');
+  if (nota) {
+    nota.textContent = precintosJornadaEditables()
+      ? 'Si marcaste un precinto como usado o scrap por error, quítalo acá — vuelve a quedar disponible.'
+      : 'La jornada ya está cerrada: los precintos solo se pueden consultar, no editar.';
+  }
+  const titulo = document.getElementById('tituloPrecintosJornadaGastos');
+  if (titulo) titulo.textContent = `Precintos de la Jornada ${fechaISOaDDMMYYYY(precintosJornadaGastosFecha)}`;
   cambiarTabPrecintosJornadaGastos('usado');
   abrirModal('modalPrecintosJornadaGastos');
 }
@@ -227,12 +347,13 @@ function renderPrecintosJornadaGastos(filas) {
   vacio.textContent = `No hay precintos ${esScrapTab ? 'como scrap' : 'usados'} en esta jornada.`;
   vacio.style.display = gruposPrecintosJornadaGastos.length ? 'none' : '';
   lista.style.display = gruposPrecintosJornadaGastos.length ? '' : 'none';
+  const editable = precintosJornadaEditables();
   lista.innerHTML = gruposPrecintosJornadaGastos.map((g, i) => `<div class="jp-card">
       <div class="jp-card-top">
         <span class="badge ${esScrapTab ? 'badge-inactivo' : 'badge-vigente'}"><span class="badge-dot"></span>${esScrapTab ? 'Scrap' : 'Usado'}</span>
-        <button type="button" class="btn-accion btn-eliminar jp-btn-tacho" title="Quitar del reporte" onclick="eliminarPrecintoDelReporteGastos(${i})">
+        ${editable ? `<button type="button" class="btn-accion btn-eliminar jp-btn-tacho" title="Quitar del reporte" onclick="eliminarPrecintoDelReporteGastos(${i})">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
+        </button>` : ''}
       </div>
       <div class="jp-rango">${g.texto}</div>
       <div class="jp-datos">
@@ -246,6 +367,7 @@ function renderPrecintosJornadaGastos(filas) {
 function eliminarPrecintoDelReporteGastos(indice) {
   const g = gruposPrecintosJornadaGastos[indice];
   if (!g) return;
+  if (!precintosJornadaEditables()) { mostrarToast('La jornada ya está cerrada: no se pueden editar los precintos.'); return; }
   const esScrap = g.estado === 'scrap';
   confirmarAccion(
     `¿Quitar ${g.precintos.length > 1 ? 'estos precintos' : 'este precinto'} del reporte? Dejará${g.precintos.length > 1 ? 'n' : ''} de aparecer en Reporte de Precintos.`,
@@ -261,11 +383,10 @@ function eliminarPrecintoDelReporteGastos(indice) {
         }
       });
       guardarEstadoPrecintos();
-      const jornada = (typeof obtenerJornadaActiva === 'function') ? obtenerJornadaActiva(gastosMovilUsuario) : null;
-      const fecha = jornada ? jornada.fecha : hoyISO();
-      precintosJornadaGastosTodasLasFilas = obtenerPrecintosDeJornada(gastosMovilUsuario, fecha);
+      precintosJornadaGastosTodasLasFilas = obtenerPrecintosDeJornada(gastosMovilUsuario, precintosJornadaGastosFecha);
       renderPrecintosJornadaGastos(precintosJornadaGastosTodasLasFilas.filter(f => f.estado === precintosJornadaGastosTab));
       renderTarjetaJornadaHoy();
+      renderJornadasRecientesGastos();
     }
   );
 }
@@ -275,17 +396,25 @@ function eliminarPrecintoDelReporteGastos(indice) {
 // no hay nada aún — mismo criterio que usa notaAgregadoPosterior.
 function estadoReporteDelDia(filasDelDia) {
   if (!filasDelDia.length) return 'Pendiente';
-  return filasDelDia.some(f => f.agregadoPosterior) ? 'Agregado posterior' : 'Registrado';
+  return 'Registrado';
 }
 function claseBadgeEstadoReporte(estado) {
   if (estado === 'Registrado') return 'badge badge-vigente';
-  if (estado === 'Agregado posterior') return 'badge badge-por-vencer';
   return 'badge badge-gris';
 }
 
 function renderTarjetasReporteDelDia() {
   const jornada = (typeof obtenerJornadaActiva === 'function') ? obtenerJornadaActiva(gastosMovilUsuario) : null;
   const fechaDD = jornada ? fechaISOaDDMMYYYY(jornada.fecha) : fechaISOaDDMMYYYY(hoyISO());
+
+  // Sin jornada iniciada no se puede registrar ningún consumo.
+  const iniciada = !!(jornada && jornada.inicio);
+  ['btnRegistrarAlimentos', 'btnRegistrarMovilidad'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.disabled = !iniciada;
+    b.title = iniciada ? '' : 'Inicia tu jornada en Operaciones para registrar';
+  });
 
   // Alimentos
   const elAlim = document.getElementById('gastosTotalAlimentos');
@@ -297,7 +426,7 @@ function renderTarjetasReporteDelDia() {
     const estado = estadoReporteDelDia(filasDia);
     setTextoYClase('gastosAlimentosEstado', estado, claseBadgeEstadoReporte(estado));
     const codigoInfoAlim = jornada && obtenerCodigoReporteJornada('Alimentos', jornada.id);
-    setTexto('gastosAlimentosCodigo', codigoInfoAlim ? codigoInfoAlim.codigo : 'Sin registrar');
+    setTexto('gastosAlimentosCodigo', !iniciada ? 'Jornada sin iniciar' : codigoInfoAlim ? codigoInfoAlim.codigo : 'Sin registrar');
     const chips = document.getElementById('gastosAlimentosComidasChips');
     if (chips) {
       chips.innerHTML = ['Desayuno', 'Almuerzo', 'Cena'].map(c => {
@@ -317,7 +446,7 @@ function renderTarjetasReporteDelDia() {
     const estado = estadoReporteDelDia(filasDia);
     setTextoYClase('gastosMovilidadEstado', estado, claseBadgeEstadoReporte(estado));
     const codigoInfoMov = jornada && obtenerCodigoReporteJornada('Movilidad', jornada.id);
-    setTexto('gastosMovilidadCodigo', codigoInfoMov ? codigoInfoMov.codigo : 'Sin registrar');
+    setTexto('gastosMovilidadCodigo', !iniciada ? 'Jornada sin iniciar' : codigoInfoMov ? codigoInfoMov.codigo : 'Sin registrar');
   }
 
   // Días a Bordo (solo lectura)
@@ -372,6 +501,21 @@ function renderResumenPeriodoGastos() {
 // para que coincida con "Jornadas registradas" de la tarjeta de arriba).
 // Tocar una abre "Generar Reporte" posicionado en esa fecha para corregir
 // un olvido dentro del plazo (§4.4).
+// Pie de la tarjeta: precintos usados y scrap de ESA jornada, como chips.
+function htmlPrecintosJornada(precintos, j) {
+  if (!precintos.length) return '<span class="gastos-jr-precintos">Sin precintos usados</span>';
+  const usados = precintos.filter(f => f.estado === 'usado');
+  const scrap = precintos.filter(f => f.estado === 'scrap');
+  const chips = (lista, clase) => lista.map(f => `<span class="gastos-jr-chip ${clase}">${f.precinto}</span>`).join('');
+  return `<div class="gastos-jr-precintos">
+    <div class="gastos-jr-precintos-cab">
+      <span class="gastos-jr-precintos-titulo">Precintos usados (${usados.length})${scrap.length ? ' · Scrap (' + scrap.length + ')' : ''}</span>
+      <button type="button" class="gastos-jr-precintos-ver" onclick="abrirModalPrecintosJornadaGastos('${j.fecha}')">${j.estado === 'cerrada' ? 'Ver' : 'Ver / editar'} ›</button>
+    </div>
+    <div class="gastos-jr-chips">${chips(usados, '')}${chips(scrap, 'scrap')}</div>
+  </div>`;
+}
+
 function renderJornadasRecientesGastos() {
   const cont = document.getElementById('gastosJornadasRecientes');
   if (!cont || !gastosMovilPeriodo) return;
@@ -399,36 +543,52 @@ function renderJornadasRecientesGastos() {
     const estadoMovilidad = estadoReporteDelDia(filasMovilidad);
     const claseAlimentos = claseBadgeEstadoReporte(estadoAlimentos);
     const claseMovilidad = claseBadgeEstadoReporte(estadoMovilidad);
+    // Botón "Añadir" por reporte con información pendiente (solo dentro del
+    // plazo máximo de Configuración de gastos).
+    const puedeAnadir = dentroDePlazoOlvido(j.fecha);
+    const registradas = new Set(filasAlimentos.map(f => f.comida));
+    let faltanAlim = COMIDAS_ALIMENTOS.filter(c => !registradas.has(c) && comidaDisponible(c, j.fecha));
+    if (j.fecha === hoyISO() && filasAlimentos.length) faltanAlim = [];
+    const btnAnadir = (fn, texto) => `<button type="button" class="gastos-jornada-reporte-add" onclick="${fn}('${j.fecha}')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>${texto}</button>`;
+    // Con información pendiente: botón "Añadir" mientras esté dentro del
+    // plazo (con la hora límite); vencido, solo se avisa que ya no se puede.
+    const nota = txt => `<small class="gastos-jornada-reporte-falta">${txt}</small>`;
+    const pendienteAlim = faltanAlim.length > 0;
+    const pendienteMov = !filasMovilidad.length;
+    const limiteTxt = puedeAnadir ? textoLimitePlazo(j.fecha) : '';
+    const vencidoTxt = `Plazo vencido (${CONFIG_JORNADA_DEMO.plazoOlvidoHoras} h)`;
+    const addAlim = !pendienteAlim ? ''
+      : puedeAnadir
+        ? `${nota((filasAlimentos.length ? 'Faltan: ' + faltanAlim.join(', ') : 'Sin registrar') + ' · hasta ' + limiteTxt)}${btnAnadir('anadirPendienteAlimentos', 'Añadir')}`
+        : (filasAlimentos.length ? '' : nota(vencidoTxt)); // si ya hay algo registrado, no se avisa el vencimiento
+    const addMov = !pendienteMov ? ''
+      : puedeAnadir
+        ? `${nota('Sin registrar · hasta ' + limiteTxt)}${btnAnadir('anadirPendienteMovilidad', 'Añadir')}`
+        : nota(vencidoTxt);
     const inicio = j.inicio ? `${j.inicio.fecha} ${horaA12(j.inicio.hora)}` : '—';
     const fin = j.fin ? `${j.fin.fecha} ${horaA12(j.fin.hora)}` : 'Jornada abierta';
+    const reporte = (nombre, total, estado, clase, extra) => `
+          <div class="gastos-jr-fila">
+            <div class="gastos-jr-info"><div class="gastos-jr-nombre-fila"><span class="gastos-jr-nombre">${nombre}</span><span class="badge ${clase.replace('badge ', '')}">${estado}</span></div><strong class="gastos-jr-monto">S/ ${total.toFixed(2)}</strong></div>
+            ${extra}
+          </div>`;
     return `
       <section class="gastos-jornada-resumen">
-        <button type="button" class="gastos-jornada-resumen-header" onclick="irAJornadaDesdeGastos('${j.fecha}')">
-          <span class="gastos-mis-gastos-fecha">Jornada del ${fechaDD}</span>
+        <div class="gastos-jr-head">
+          <span class="gastos-jr-fecha">${fechaDD}</span>
           <span class="badge ${j.estado === 'abierta' ? 'badge-por-vencer' : 'badge-gris'}">${j.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</span>
-        </button>
-        <div class="gastos-jornada-resumen-datos">
-          <span>Inicio <strong>${inicio}</strong></span>
-          <span>Fin <strong>${fin}</strong></span>
         </div>
-        <div class="gastos-jornada-operaciones">
-          <span>Operaciones realizadas</span>
-          <strong>${textoOperacionesInvolucradas(operaciones)}</strong>
+        <div class="gastos-jr-horario">
+          <div><span>Inicio</span><strong>${inicio}</strong></div>
+          <div><span>Fin</span><strong>${fin}</strong></div>
         </div>
-        <div class="gastos-jornada-reportes-wrap">
-          <span class="gastos-jornada-reportes-titulo">Reportes de la jornada</span>
-          <div class="gastos-jornada-reportes">
-          <div class="gastos-jornada-reporte">
-            <div><span>Alimentos</span><strong>S/ ${totalAlimentos.toFixed(2)}</strong></div>
-            <span class="badge ${claseAlimentos.replace('badge ', '')}">${estadoAlimentos}</span>
-          </div>
-          <div class="gastos-jornada-reporte">
-            <div><span>Gastos operativos</span><strong>S/ ${totalMovilidad.toFixed(2)}</strong></div>
-            <span class="badge ${claseMovilidad.replace('badge ', '')}">${estadoMovilidad}</span>
-          </div>
-          </div>
+        <div class="gastos-jr-ops"><span>Operaciones</span><strong>${textoOperacionesInvolucradas(operaciones)}</strong></div>
+        <div class="gastos-jr-reportes">
+          ${reporte('Alimentos', totalAlimentos, estadoAlimentos, claseAlimentos, addAlim)}
+          ${reporte('Movilidad', totalMovilidad, estadoMovilidad, claseMovilidad, addMov)}
         </div>
-        <span class="gastos-jornada-resumen-precintos">${precintos.length ? `Precintos usados (${precintos.length})` : 'Sin precintos usados'}</span>
+        ${htmlPrecintosJornada(precintos, j)}
       </section>`;
   }).join('');
 }
@@ -436,8 +596,9 @@ function renderJornadasRecientesGastos() {
 // Abre "Registrar Alimentos" con la fecha de una jornada reciente ya
 // seleccionada (§4.4: "tocar abre esa jornada para olvidos dentro del
 // plazo") — Alimentos primero, igual que la secuencia de reportes (§2).
-function irAJornadaDesdeGastos(fechaISO) {
-  abrirModalRegistrarAlimentos();
+function irAJornadaDesdeGastos(fechaISO, tipo) {
+  if (tipo === 'Movilidad') { anadirPendienteMovilidad(fechaISO); return; }
+  abrirModalRegistrarAlimentos(fechaISO);
   document.getElementById('alimentosFecha').value = fechaISO;
   actualizarComidasDisponibles();
   renderPanelInformativoGasto('alimentos', fechaISO, 'Alimentos');
@@ -505,45 +666,250 @@ function renderPanelInformativoGasto(prefijo, fechaISODia, tipo) {
   }
 }
 
-function abrirModalRegistrarAlimentos() {
+// Ayudas compartidas de los formularios múltiples (Alimentos / Movilidad).
+function escAttrGasto(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const ICONO_LUGAR_GASTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+const ICONO_RELOJ_GASTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+const ICONO_SOLES_GASTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 6v2m0 8v2"/></svg>';
+const ICONO_CAMION_GASTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2v-4l-3-5H6L3 13v4h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17h8"/></svg>';
+const ICONO_MOTIVO_GASTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+
+// Campo de texto con icono (mismo markup que los formularios estáticos).
+function htmlCampoGasto(etiqueta, id, icono, atributos, valor) {
+  return `<div class="movil-form-group">
+    <label class="movil-form-label">${etiqueta}</label>
+    <div class="movil-input-wrap">
+      <span class="input-icon">${icono}</span>
+      <input class="movil-input" id="${id}" value="${escAttrGasto(valor)}" ${atributos || 'type="text"'}>
+    </div>
+  </div>`;
+}
+
+// Selector de hora propio (12h am/pm) generado por JS — mismo contrato que
+// el estático (ver abrirSelectorHora): hidden "{baseId}" en 24h + texto.
+function htmlSelectorHoraGasto(baseId, etiqueta, valor24) {
+  const flecha = (u, d, svg) => `<button type="button" class="movil-hspin-btn" onclick="hspinAjustar('${baseId}','${u}',${d})">${svg}</button>`;
+  const arriba = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg>';
+  const abajo = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>';
+  const spin = (u, sufijo, txt, extra) => `<div class="movil-hspin${extra || ''}" onwheel="hspinRueda(event,'${baseId}','${u}')">
+        ${flecha(u, 1, arriba)}<div class="movil-hspin-valor" id="${baseId}Spin${sufijo}">${txt}</div>${flecha(u, -1, abajo)}
+      </div>`;
+  return `<div class="movil-form-group movil-hora-campo">
+    <label class="movil-form-label">${etiqueta}</label>
+    <div class="movil-input-wrap">
+      <span class="input-icon">${ICONO_RELOJ_GASTO}</span>
+      <input type="text" class="movil-input" id="${baseId}Texto" readonly placeholder="--:-- am/pm" value="${valor24 ? horaA12(valor24) : ''}" onclick="abrirSelectorHora('${baseId}')">
+      <input type="hidden" id="${baseId}" value="${escAttrGasto(valor24)}">
+    </div>
+    <div class="movil-hora-dropdown" id="${baseId}Dropdown" style="display:none;">
+      <div class="movil-hora-dropdown-fila">
+        ${spin('h', 'H', '12')}<span class="movil-hora-dospuntos">:</span>
+        ${spin('m', 'M', '00')}<span class="movil-hora-dospuntos">:</span>
+        ${spin('ampm', 'Ampm', 'AM', ' movil-hspin-ampm')}
+      </div>
+      <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('${baseId}')">Listo</button>
+    </div>
+  </div>`;
+}
+
+// Tarjetas contraíbles: el estado (contraída) sobrevive a los re-dibujados.
+const tarjetasGastoContraidas = new Set();
+const ICONO_CONTRAER_GASTO = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>';
+
+function abrirTarjetaGasto(clave, titulo, estado, extraCab) {
+  const contraida = tarjetasGastoContraidas.has(clave);
+  return `<div class="gastos-multi-card${contraida ? ' contraida' : ''}" data-clave="${clave}">
+    <div class="gastos-multi-card-cab">
+      <button type="button" class="gastos-multi-card-toggle" onclick="toggleTarjetaGasto('${clave}')" title="Contraer / expandir">
+        ${ICONO_CONTRAER_GASTO}<span class="gastos-multi-card-titulo">${titulo}</span>
+      </button>
+      <span class="gastos-multi-card-resumen"></span>
+      <span class="gastos-multi-card-estado">${estado || ''}</span>${extraCab || ''}
+    </div>
+    <div class="gastos-multi-card-cuerpo">`;
+}
+const CERRAR_TARJETA_GASTO = '</div></div>';
+
+// Texto corto que se ve cuando la tarjeta está contraída: primer campo de
+// texto (lugar / empresa) y el monto.
+function actualizarResumenTarjetaGasto(card) {
+  const resumen = card.querySelector('.gastos-multi-card-resumen');
+  if (!resumen) return;
+  const texto = card.querySelector('input[type="text"]:not([readonly])');
+  const monto = card.querySelector('input[type="number"]');
+  const partes = [];
+  if (texto && texto.value.trim()) partes.push(texto.value.trim());
+  if (monto && monto.value) partes.push(`S/ ${Number(monto.value).toFixed(2)}`);
+  resumen.textContent = card.classList.contains('contraida') ? partes.join(' · ') : '';
+}
+
+function toggleTarjetaGasto(clave) {
+  const card = document.querySelector(`.gastos-multi-card[data-clave="${clave}"]`);
+  if (!card) return;
+  const contraida = card.classList.toggle('contraida');
+  if (contraida) tarjetasGastoContraidas.add(clave); else tarjetasGastoContraidas.delete(clave);
+  actualizarResumenTarjetaGasto(card);
+}
+
+// Si el campo con error está en una tarjeta contraída, la expande para que
+// se vea el mensaje.
+function errorCampoGasto(el, mensaje) {
+  const card = el && el.closest ? el.closest('.gastos-multi-card') : null;
+  if (card && card.classList.contains('contraida')) toggleTarjetaGasto(card.dataset.clave);
+  mostrarErrorCampo(el, mensaje);
+}
+
+const COMIDAS_ALIMENTOS = ['Desayuno', 'Almuerzo', 'Cena'];
+let alimentosComidaEditando = null; // comida de la fila que se edita (una sola tarjeta)
+
+// Solo se puede registrar si la jornada de esa fecha ya inició (o si se
+// puede declarar por ser un día pasado dentro del plazo).
+function jornadaPermiteRegistrar(fechaISO) {
+  if ((jornadaDelGasto(fechaISO) || {}).inicio) return true;
+  if (jornadaDeclarable(fechaISO)) return true;
+  mostrarToast('La jornada de esa fecha aún no inicia: toca "Comenzar día" en Operaciones para poder registrar consumos.');
+  return false;
+}
+
+function abrirModalRegistrarAlimentos(fechaISO) {
+  const fechaInicial = fechaISO || fechaMaxPeriodo();
+  if (!jornadaPermiteRegistrar(fechaInicial)) return;
   alimentosIndiceEditando = null;
+  alimentosComidaEditando = null;
   alimentosEvidenciaTemp = [];
+  tarjetasGastoContraidas.clear();
   document.getElementById('tituloRegistrarAlimentos').textContent = 'Registrar Alimentos';
-  document.getElementById('alimentosComida').value = 'Desayuno';
-  document.getElementById('alimentosFecha').value = hoyISO();
-  document.getElementById('alimentosFecha').max = hoyISO();
+  document.getElementById('alimentosFecha').value = fechaInicial;
+  document.getElementById('alimentosFecha').max = fechaMaxPeriodo();
   document.getElementById('alimentosFecha').min = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
-  document.getElementById('alimentosLugar').value = '';
-  document.getElementById('alimentosHora').value = '';
-  actualizarDisplayHora('alimentosHora');
-  document.getElementById('alimentosCosto').value = '';
-  document.getElementById('alimentosSinSustento').checked = false;
-  toggleEvidenciaAlimentos();
   renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
   document.getElementById('alimentosJustificacion').value = '';
+  limpiarDeclaracionJornada('alimentos');
   actualizarComidasDisponibles();
-  renderPanelInformativoGasto('alimentos', hoyISO(), 'Alimentos');
+  renderPanelInformativoGasto('alimentos', fechaInicial, 'Alimentos');
   abrirModal('modalRegistrarAlimentos');
 }
 
-function toggleEvidenciaAlimentos() {
-  const marcado = document.getElementById('alimentosSinSustento').checked;
-  document.getElementById('alimentosEvidenciaGroup').style.display = marcado ? 'none' : '';
+/* =================================================
+   EVIDENCIA (fotos de los gastos). En los registros sigue siendo una lista
+   de textos (compatible con la web); la imagen real se guarda aparte, por
+   texto, en EVIDENCIAS_IMG_GASTOS (reducida para no llenar el
+   almacenamiento). Si un texto no tiene imagen guardada (datos de ejemplo),
+   se dibuja una foto de muestra con su nombre.
+================================================= */
+const EVIDENCIAS_IMG_GASTOS = tgCargarCatalogo('evidenciasImgGastosData', {});
+
+function etiquetaEvidencia(clave) {
+  return String(clave).replace(/\s#[a-z0-9]{5}$/, '');
+}
+
+// Foto de muestra (boleta/ticket) para evidencias sin imagen guardada.
+function svgEvidenciaDemo(clave) {
+  const m = etiquetaEvidencia(clave).match(/\(([^)]+)\)/);
+  const nombre = (m ? m[1] : 'foto').replace(/[<>&"']/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240" viewBox="0 0 320 240">
+    <rect width="320" height="240" fill="#E5E7EB"/>
+    <rect x="92" y="18" width="136" height="204" rx="6" fill="#FFFFFF" stroke="#D1D5DB"/>
+    <rect x="108" y="34" width="104" height="14" rx="3" fill="#FFC000"/>
+    <g fill="#9CA3AF"><rect x="108" y="64" width="104" height="5" rx="2"/><rect x="108" y="78" width="82" height="5" rx="2"/>
+    <rect x="108" y="92" width="96" height="5" rx="2"/><rect x="108" y="106" width="70" height="5" rx="2"/>
+    <rect x="108" y="120" width="100" height="5" rx="2"/><rect x="108" y="134" width="60" height="5" rx="2"/></g>
+    <rect x="108" y="158" width="104" height="1.5" fill="#D1D5DB"/>
+    <rect x="150" y="170" width="62" height="12" rx="3" fill="#111111"/>
+    <text x="160" y="232" text-anchor="middle" font-family="Arial" font-size="12" fill="#6B7280">${nombre}</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+function srcEvidencia(clave) {
+  return EVIDENCIAS_IMG_GASTOS[clave] || svgEvidenciaDemo(clave);
+}
+
+// Miniaturas en cuadrícula (sin cortes de texto); tocar una la abre grande.
+function htmlEvidenciaGrid(lista, vacio) {
+  if (!lista || !lista.length) return `<span class="gastos-evidencia-vacia">${vacio}</span>`;
+  return `<div class="evidencia-grid">${lista.map(c => `
+    <button type="button" class="evidencia-thumb" data-ev="${escAttrGasto(c)}" onclick="verImagenEvidencia(this)">
+      <img src="${srcEvidencia(c)}" alt="${escAttrGasto(etiquetaEvidencia(c))}">
+      <span>${escAttrGasto(etiquetaEvidencia(c))}</span>
+    </button>`).join('')}</div>`;
+}
+
+// La imagen se amplía DENTRO del mismo modal (con botón "Volver"), no en un
+// segundo modal encima.
+function verImagenEvidencia(btn) {
+  const modal = btn.closest('.modal');
+  if (!modal) return;
+  const clave = btn.dataset.ev;
+  let visor = modal.querySelector('.evidencia-visor');
+  if (!visor) {
+    visor = document.createElement('div');
+    visor.className = 'evidencia-visor';
+    modal.appendChild(visor);
+  }
+  visor.innerHTML = `
+    <div class="evidencia-visor-cab">
+      <button type="button" class="evidencia-visor-volver" onclick="cerrarVisorEvidencia(this)" aria-label="Volver">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <span class="evidencia-visor-titulo">${escAttrGasto(etiquetaEvidencia(clave))}</span>
+    </div>
+    <div class="evidencia-visor-cuerpo"><img src="${srcEvidencia(clave)}" alt="${escAttrGasto(etiquetaEvidencia(clave))}"></div>`;
+  modal.classList.add('con-visor');
+}
+
+function cerrarVisorEvidencia(btn) {
+  const modal = btn.closest('.modal');
+  if (modal) modal.classList.remove('con-visor');
+}
+
+// Lee la foto elegida, la reduce (máx. 640 px, JPEG) y la guarda; devuelve
+// por callback el texto que queda en el registro.
+function guardarEvidenciaImagen(file, numero, callback) {
+  const id = Math.random().toString(36).slice(2, 7);
+  const clave = `Evidencia ${numero} (${file.name}) #${id}`;
+  const listo = () => callback(clave);
+  const reader = new FileReader();
+  reader.onerror = listo;
+  reader.onload = () => {
+    const img = new Image();
+    img.onerror = listo;
+    img.onload = () => {
+      try {
+        const escala = Math.min(1, 640 / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        EVIDENCIAS_IMG_GASTOS[clave] = canvas.toDataURL('image/jpeg', 0.7);
+        tgGuardarCatalogo('evidenciasImgGastosData', EVIDENCIAS_IMG_GASTOS);
+      } catch (e) {
+        delete EVIDENCIAS_IMG_GASTOS[clave]; // sin espacio: queda solo el nombre
+      }
+      listo();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function agregarEvidenciaAlimentos(input) {
   if (!input.files || !input.files.length) return;
-  alimentosEvidenciaTemp.push(`Evidencia ${alimentosEvidenciaTemp.length + 1} (${input.files[0].name})`);
+  const archivo = input.files[0];
   input.value = '';
-  renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
+  guardarEvidenciaImagen(archivo, alimentosEvidenciaTemp.length + 1, clave => {
+    alimentosEvidenciaTemp.push(clave);
+    renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
+  });
 }
 
 function renderEvidenciaChips(contenedorId, lista) {
   const cont = document.getElementById(contenedorId);
   if (!cont) return;
-  cont.innerHTML = lista.length
-    ? lista.map(n => `<span class="gastos-evidencia-chip">${n}</span>`).join('')
-    : `<span class="gastos-evidencia-vacia">Sin fotos adjuntadas.</span>`;
+  cont.innerHTML = htmlEvidenciaGrid(lista, 'Sin fotos adjuntadas.');
 }
 
 // §3 PROMPT_GASTOS_JORNADA_SPRINT4: sin Jornada marcada/declarada en la
@@ -562,7 +928,13 @@ function jornadaDelGasto(fechaISODia) {
 // INICIADO dentro del rango [desde, hasta) de esa comida.
 function comidaDisponible(comida, fechaISODia) {
   const jornada = jornadaDelGasto(fechaISODia);
-  if (!jornada || !jornada.inicio) return true; // sin jornada no hay corte que aplicar (el gating de guardado ya bloquea el registro)
+  if (!jornada || !jornada.inicio) {
+    // Sin jornada: si ya se está declarando una (jornada olvidada), los
+    // cortes se evalúan con las horas declaradas aún no guardadas.
+    const ini = valorDeclarado('alimentos', 'Inicio');
+    if (ini) return comidaHabilitadaPorCorte(comida, ini, valorDeclarado('alimentos', 'Fin') || null);
+    return true; // sin jornada ni declaración no hay corte que aplicar (el gating de guardado ya bloquea el registro)
+  }
   return comidaHabilitadaPorCorte(comida, jornada.inicio.hora, jornada.fin && jornada.fin.hora);
 }
 
@@ -582,6 +954,97 @@ function comidaDisponible(comida, fechaISODia) {
    un reporte de un día anterior cae en el mismo caso: su fecha también
    quedó en el pasado.
 ================================================= */
+/* =================================================
+   JORNADA OLVIDADA — si en esa fecha no se marcó la jornada, se puede
+   DECLARAR (hora de inicio y fin) mientras no pase el plazo máximo de
+   horas de Configuración de gastos (CONFIG_JORNADA_DEMO.plazoOlvidoHoras,
+   contado desde el fin de ese día). La jornada queda guardada como
+   "declarada" y desde ahí Alimentos/Movilidad se registran igual que con
+   una jornada marcada (con justificación, por ser un día pasado).
+================================================= */
+function finDelDiaMs(fechaISODia) {
+  return new Date(`${fechaISODia}T00:00:00`).getTime() + 24 * 3600000;
+}
+
+function valorDeclarado(prefijo, cual) {
+  const el = document.getElementById(`${prefijo}Decl${cual}`);
+  return el ? el.value : '';
+}
+
+// ¿Esa fecha admite declarar jornada? Pasada, sin jornada y dentro del plazo.
+function jornadaDeclarable(fechaISODia) {
+  return !!fechaISODia && esGastoOlvidado(fechaISODia) && !jornadaDelGasto(fechaISODia) && dentroDePlazoOlvido(fechaISODia);
+}
+
+// Muestra/oculta el bloque "Declarar jornada" de un modal según la fecha.
+function renderBloqueDeclaracion(prefijo, fechaISODia) {
+  const grupo = document.getElementById(`${prefijo}DeclaracionGroup`);
+  if (!grupo) return;
+  const declarable = jornadaDeclarable(fechaISODia);
+  grupo.style.display = declarable ? '' : 'none';
+  const aviso = document.getElementById(`${prefijo}DeclaracionAviso`);
+  if (aviso && declarable) {
+    const limite = new Date(finDelDiaMs(fechaISODia) + CONFIG_JORNADA_DEMO.plazoOlvidoHoras * 3600000);
+    const pad = n => String(n).padStart(2, '0');
+    aviso.textContent = `No marcaste jornada este día. Puedes declararla hasta el ${pad(limite.getDate())}/${pad(limite.getMonth() + 1)} ${horaA12(`${pad(limite.getHours())}:${pad(limite.getMinutes())}`)} (máx. ${CONFIG_JORNADA_DEMO.plazoOlvidoHoras} h).`;
+  }
+}
+
+function limpiarDeclaracionJornada(prefijo) {
+  ['Inicio', 'Fin'].forEach(cual => {
+    const base = `${prefijo}Decl${cual}`;
+    const h = document.getElementById(base);
+    if (h) { h.value = ''; actualizarDisplayHora(base); }
+  });
+}
+
+// onchange de las horas declaradas: refresca comida disponible / bloque.
+function actualizarDeclaracionJornada(prefijo) {
+  if (prefijo === 'alimentos') actualizarComidasDisponibles();
+  else actualizarJustificacionMovilidad();
+}
+
+// Valida las horas declaradas (si la fecha las requiere). Devuelve false y
+// marca el campo si falta algo. No guarda nada todavía.
+function validarDeclaracionJornada(prefijo, fechaISODia) {
+  if (jornadaDelGasto(fechaISODia)) return true;
+  if (!esGastoOlvidado(fechaISODia)) {
+    mostrarToast('No hay una jornada marcada hoy: toca "Comenzar día" en Operaciones antes de registrar el gasto.');
+    return false;
+  }
+  if (!dentroDePlazoOlvido(fechaISODia)) {
+    mostrarToast(`Ya pasó el plazo (${CONFIG_JORNADA_DEMO.plazoOlvidoHoras} h) para declarar la jornada de esa fecha.`);
+    return false;
+  }
+  const ini = valorDeclarado(prefijo, 'Inicio'), fin = valorDeclarado(prefijo, 'Fin');
+  if (!ini) { mostrarErrorCampo(document.getElementById(`${prefijo}DeclInicioTexto`), 'Indica la hora de inicio'); return false; }
+  if (!fin) { mostrarErrorCampo(document.getElementById(`${prefijo}DeclFinTexto`), 'Indica la hora de fin'); return false; }
+  if (fin <= ini) { mostrarErrorCampo(document.getElementById(`${prefijo}DeclFinTexto`), 'La hora de fin debe ser mayor a la de inicio'); return false; }
+  return true;
+}
+
+// Crea y guarda la jornada declarada (llamar solo tras validar todo lo demás).
+function crearJornadaDeclarada(prefijo, fechaISODia, justificacion) {
+  if (jornadaDelGasto(fechaISODia)) return;
+  const ini = valorDeclarado(prefijo, 'Inicio'), fin = valorDeclarado(prefijo, 'Fin');
+  const fechaTexto = fechaISOaDDMMYYYY(fechaISODia);
+  const bloque = hora => ({
+    hora, horaLarga: horaA12(hora), fecha: fechaTexto, fechaHoraISO: `${fechaISODia}T${hora}:00`,
+    ubicacionTexto: 'Jornada declarada manualmente', fuente: 'declarada', sincronizado: true
+  });
+  const jornada = {
+    id: `${gastosMovilUsuario}_${fechaISODia}`,
+    usuario: gastosMovilUsuario, fecha: fechaISODia,
+    inicio: bloque(ini), fin: bloque(fin),
+    estado: 'cerrada', declarada: true,
+    declaradaEn: new Date().toISOString(), justificacion: justificacion || '',
+    operaciones: typeof obtenerOperacionesAsignadasOperador === 'function' ? obtenerOperacionesAsignadasOperador(gastosMovilUsuario).slice(0, 3) : []
+  };
+  jornada.horas = calcularHorasJornada(jornada.inicio, jornada.fin);
+  JORNADAS_MOVIL_DEMO[jornada.id] = jornada;
+  guardarJornadasMovil();
+}
+
 function esGastoOlvidado(fechaISODia) {
   return fechaISODia < hoyISO();
 }
@@ -592,8 +1055,29 @@ function esGastoOlvidado(fechaISODia) {
 function horasDesdeCierreJornada(fechaISODia) {
   if (!esGastoOlvidado(fechaISODia)) return null;
   const jornada = jornadaDelGasto(fechaISODia);
-  if (!jornada || !jornada.fin) return null;
+  // Día sin jornada marcada (jornada olvidada): el plazo corre desde el fin
+  // de ese día calendario. Una jornada declarada también cuenta desde ahí
+  // (su hora de fin es solo declarativa, no debe acortar el plazo).
+  if (!jornada || jornada.declarada) return (Date.now() - finDelDiaMs(fechaISODia)) / 3600000;
+  if (!jornada.fin) return null;
   return (Date.now() - new Date(jornada.fin.fechaHoraISO).getTime()) / 3600000;
+}
+
+// Fecha/hora límite para añadir información de ese día: fin de la jornada
+// + plazoOlvidoHoras (Configuración de gastos, web). Si la jornada no tiene
+// fin marcado o fue declarada, se cuenta desde el fin del día calendario.
+function limitePlazoOlvido(fechaISODia) {
+  const jornada = jornadaDelGasto(fechaISODia);
+  const base = (jornada && jornada.fin && !jornada.declarada)
+    ? new Date(jornada.fin.fechaHoraISO).getTime()
+    : finDelDiaMs(fechaISODia);
+  return new Date(base + CONFIG_JORNADA_DEMO.plazoOlvidoHoras * 3600000);
+}
+
+function textoLimitePlazo(fechaISODia) {
+  const l = limitePlazoOlvido(fechaISODia);
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(l.getDate())}/${pad(l.getMonth() + 1)} ${horaA12(`${pad(l.getHours())}:${pad(l.getMinutes())}`)}`;
 }
 
 function dentroDePlazoOlvido(fechaISODia) {
@@ -621,60 +1105,110 @@ function actualizarVisibilidadJustificacion(prefijo, fechaISODia) {
 function actualizarJustificacionMovilidad() {
   const fechaInput = document.getElementById('movilidadFecha');
   if (!fechaInput || !fechaInput.value) return;
+  renderBloqueDeclaracion('movilidad', fechaInput.value);
   actualizarVisibilidadJustificacion('movilidad', fechaInput.value);
   renderPanelInformativoGasto('movilidad', fechaInput.value, 'Movilidad');
 }
 
-// Refresca qué opciones de "Comida" quedan habilitadas según la fecha
-// elegida (se llama al abrir el modal, al editar y al cambiar la fecha) —
-// si la comida ya elegida queda deshabilitada, salta a la primera
-// disponible en vez de dejar una opción bloqueada seleccionada.
+// Lee lo escrito en las tarjetas de comida (para no perderlo al volver a
+// dibujarlas, p.ej. al cambiar la fecha o declarar la jornada).
+function leerValoresComidasAlimentos() {
+  const v = {};
+  COMIDAS_ALIMENTOS.forEach(c => {
+    const lugar = document.getElementById(`alimLugar_${c}`);
+    if (!lugar) return;
+    v[c] = { lugar: lugar.value, hora: document.getElementById(`alimHora_${c}`).value, costo: document.getElementById(`alimCosto_${c}`).value };
+  });
+  return v;
+}
+
+// Una tarjeta por comida. Solo quedan habilitadas las que corresponden a la
+// hora configurada (comidaDisponible) y que ese día todavía no se
+// registraron; las demás muestran el motivo. Al editar, una sola tarjeta.
+function renderComidasAlimentos(valores) {
+  const cont = document.getElementById('alimentosComidasLista');
+  if (!cont) return;
+  valores = valores || {};
+  const fechaISO = document.getElementById('alimentosFecha').value;
+  const editando = alimentosIndiceEditando !== null;
+  const detalle = obtenerDetalleGastoPorTipo('Alimentos', gastosMovilPeriodo.ids['Alimentos']);
+  const fechaDD = fechaISO ? fechaISOaDDMMYYYY(fechaISO) : '';
+
+  const comidas = editando ? [alimentosComidaEditando] : COMIDAS_ALIMENTOS;
+  const motivoBloqueo = c => {
+    if (!fechaISO) return 'Selecciona una fecha.';
+    if (!editando && !comidaDisponible(c, fechaISO)) return 'No corresponde según la hora configurada para esta jornada.';
+    if (!editando && detalle.grilla.some(f => f.fecha === fechaDD && f.comida === c)) return 'Ya registrada este día.';
+    return '';
+  };
+  // Las comidas disponibles van primero; las ya registradas o no habilitadas quedan al final.
+  const ordenadas = [...comidas].sort((x, y) => (motivoBloqueo(x) ? 1 : 0) - (motivoBloqueo(y) ? 1 : 0));
+  cont.innerHTML = ordenadas.map(c => {
+    const bloqueo = motivoBloqueo(c);
+
+    if (bloqueo) {
+      return `<div class="gastos-multi-card deshabilitada">
+        <div class="gastos-multi-card-cab"><span class="gastos-multi-card-titulo">${c}</span><span class="gastos-multi-card-estado">${bloqueo}</span></div>
+      </div>`;
+    }
+    const v = valores[c] || {};
+    return `${abrirTarjetaGasto(`alim_${c}`, c, editando ? 'Editando' : 'Disponible')}
+      ${htmlCampoGasto('Lugar', `alimLugar_${c}`, ICONO_LUGAR_GASTO, 'type="text"', v.lugar)}
+      ${htmlSelectorHoraGasto(`alimHora_${c}`, 'Hora', v.hora)}
+      ${htmlCampoGasto('Costo (S/)', `alimCosto_${c}`, ICONO_SOLES_GASTO, 'type="number" step="0.01" oninput="actualizarTopeAlimentos()"', v.costo)}
+      <span class="movil-input-contador" id="alimTope_${c}"></span>
+    ${CERRAR_TARJETA_GASTO}`;
+  }).join('');
+  cont.querySelectorAll('.gastos-multi-card.contraida').forEach(actualizarResumenTarjetaGasto);
+}
+
+// Refresca las tarjetas de comida según la fecha elegida (se llama al abrir
+// el modal, al editar, al cambiar la fecha y al declarar la jornada).
 function actualizarComidasDisponibles() {
-  const select = document.getElementById('alimentosComida');
   const fechaInput = document.getElementById('alimentosFecha');
   const span = document.getElementById('alimentosComidaCorteTexto');
-  if (!select || !fechaInput || !fechaInput.value) return;
+  if (!fechaInput || !fechaInput.value) return;
 
-  let seleccionBloqueada = false;
-  [...select.options].forEach(opt => {
-    const disponible = comidaDisponible(opt.value, fechaInput.value);
-    opt.disabled = !disponible;
-    if (opt.value === select.value && !disponible) seleccionBloqueada = true;
-  });
-  if (seleccionBloqueada) {
-    const siguiente = [...select.options].find(o => !o.disabled);
-    if (siguiente) select.value = siguiente.value;
-  }
+  renderComidasAlimentos(leerValoresComidasAlimentos());
 
   const jornada = jornadaDelGasto(fechaInput.value);
   if (span) {
-    if (!jornada) span.textContent = 'No hay jornada marcada en esta fecha: no se puede registrar.';
+    if (!jornada) span.textContent = jornadaDeclarable(fechaInput.value)
+      ? 'No hay jornada marcada ese día: decláralo abajo para poder registrar.'
+      : 'No hay jornada marcada en esta fecha: no se puede registrar.';
     else if (!jornada.inicio) span.textContent = '';
     else span.textContent = `Jornada inició ${jornada.inicio.hora}${jornada.inicio.fuente === 'declarada' ? ' (declarada)' : ''}.`;
   }
+  renderBloqueDeclaracion('alimentos', fechaInput.value);
   actualizarVisibilidadJustificacion('alimentos', fechaInput.value);
   actualizarTopeAlimentos();
   renderPanelInformativoGasto('alimentos', fechaInput.value, 'Alimentos');
 }
 
-// Muestra cuánto lleva gastado ese día en esa comida y en total, contra los
-// topes de Configuración — antes de intentar guardar (misma cuenta que
-// guardarGastoAlimentos usa para bloquear si se excede).
+// Muestra, por comida y para todo el día, cuánto se llevaría gastado contra
+// los topes de Configuración — antes de intentar guardar.
 function actualizarTopeAlimentos() {
-  const span = document.getElementById('alimentosTopeTexto');
-  const comida = document.getElementById('alimentosComida').value;
+  const resumen = document.getElementById('alimentosTopeTexto');
   const fecha = document.getElementById('alimentosFecha').value;
-  const costo = parseFloat(document.getElementById('alimentosCosto').value) || 0;
-  if (!fecha) { span.textContent = ''; return; }
-
-  const { totalDia, totalComida } = totalesAlimentosDelDia(fecha, comida);
-  const topeComida = LIMITES_GASTOS_DEMO.alimentos[comida.toLowerCase()];
-  const topeDia = LIMITES_GASTOS_DEMO.alimentos.montoMaximoDia;
-  span.textContent = `Tope ${comida.toLowerCase()}: S/ ${(totalComida + costo).toFixed(2)} / S/ ${topeComida.toFixed(2)} · Tope del día: S/ ${(totalDia + costo).toFixed(2)} / S/ ${topeDia.toFixed(2)}`;
+  if (!resumen) return;
+  if (!fecha) { resumen.textContent = ''; return; }
+  let suma = 0;
+  COMIDAS_ALIMENTOS.forEach(c => {
+    const costoEl = document.getElementById(`alimCosto_${c}`);
+    const topeEl = document.getElementById(`alimTope_${c}`);
+    if (!costoEl || !topeEl) return;
+    const costo = parseFloat(costoEl.value) || 0;
+    suma += costo;
+    const { totalComida } = totalesAlimentosDelDia(fecha, c);
+    const tope = LIMITES_GASTOS_DEMO.alimentos[c.toLowerCase()];
+    topeEl.textContent = `Tope ${c.toLowerCase()}: S/ ${(totalComida + costo).toFixed(2)} / S/ ${tope.toFixed(2)}`;
+  });
+  const { totalDia } = totalesAlimentosDelDia(fecha, 'Desayuno');
+  resumen.textContent = `Tope del día: S/ ${(totalDia + suma).toFixed(2)} / S/ ${LIMITES_GASTOS_DEMO.alimentos.montoMaximoDia.toFixed(2)}`;
 }
 
 // Suma lo YA registrado ese día (excluyendo la fila que se está editando,
-// si aplica) — para comparar contra los topes antes de agregar/editar una más.
+// si aplica) — para comparar contra los topes antes de agregar/editar.
 function totalesAlimentosDelDia(fechaISODia, comida) {
   const detalle = obtenerDetalleGastoPorTipo('Alimentos', gastosMovilPeriodo.ids['Alimentos']);
   const fechaDD = fechaISOaDDMMYYYY(fechaISODia);
@@ -688,36 +1222,56 @@ function totalesAlimentosDelDia(fechaISODia, comida) {
   return { totalDia, totalComida };
 }
 
+// Guarda de una sola vez todas las comidas llenadas (Desayuno, Almuerzo y/o
+// Cena) — o la única comida en edición.
 function guardarGastoAlimentos() {
-  const comida = document.getElementById('alimentosComida').value;
   const fechaInput = document.getElementById('alimentosFecha');
-  const lugarInput = document.getElementById('alimentosLugar');
-  const horaInput = document.getElementById('alimentosHora');
-  const costoInput = document.getElementById('alimentosCosto');
-  const sinSustento = document.getElementById('alimentosSinSustento').checked;
+  const editando = alimentosIndiceEditando !== null;
 
   if (!fechaInput.value) { mostrarErrorCampo(fechaInput, 'Selecciona una fecha'); return; }
   if (fechaInput.value > hoyISO()) { mostrarErrorCampo(fechaInput, 'La fecha no puede ser futura'); return; }
-  if (!lugarInput.value.trim()) { mostrarErrorCampo(lugarInput, 'Ingresa el lugar'); return; }
-  const costo = parseFloat(costoInput.value);
-  if (isNaN(costo) || costo <= 0) { mostrarErrorCampo(costoInput, 'Ingresa un costo válido'); return; }
+
+  // Comidas con datos (en edición, la única tarjeta siempre cuenta).
+  const entradas = [];
+  COMIDAS_ALIMENTOS.forEach(c => {
+    const lugarEl = document.getElementById(`alimLugar_${c}`);
+    if (!lugarEl) return; // tarjeta bloqueada o no mostrada
+    const horaEl = document.getElementById(`alimHora_${c}`);
+    const costoEl = document.getElementById(`alimCosto_${c}`);
+    if (!editando && !lugarEl.value.trim() && !costoEl.value && !horaEl.value) return;
+    entradas.push({ comida: c, lugarEl, horaEl, costoEl });
+  });
+  if (!entradas.length) { mostrarToast('Completa al menos una comida (lugar y costo).'); return; }
+
+  for (const e of entradas) {
+    if (!e.lugarEl.value.trim()) { errorCampoGasto(e.lugarEl, `Ingresa el lugar del ${e.comida.toLowerCase()}`); return; }
+    const costo = parseFloat(e.costoEl.value);
+    if (isNaN(costo) || costo <= 0) { errorCampoGasto(e.costoEl, `Ingresa un costo válido para ${e.comida.toLowerCase()}`); return; }
+    e.costo = costo;
+  }
 
   // §3: sin jornada marcada/declarada en esa fecha no se puede registrar
-  // nada; con jornada, Desayuno/Almuerzo respetan su corte horario — se
-  // revalida acá además de deshabilitarlo en el select (defensa en
-  // profundidad, por si el valor llegó bloqueado de otra forma).
-  if (!jornadaDelGasto(fechaInput.value)) { mostrarToast('No hay una jornada marcada o declarada en esa fecha: no se puede registrar el gasto.'); return; }
-  if (!comidaDisponible(comida, fechaInput.value)) { mostrarToast(`${comida} no está disponible: la jornada de ese día no inició dentro de su rango de horas.`); return; }
+  // nada; con jornada, cada comida respeta su rango horario (defensa en
+  // profundidad: ya salen bloqueadas en su tarjeta).
+  if (!validarDeclaracionJornada('alimentos', fechaInput.value)) return;
+  for (const e of entradas) {
+    if (!comidaDisponible(e.comida, fechaInput.value)) { mostrarToast(`${e.comida} no está disponible: la jornada de ese día no cae dentro de su rango de horas.`); return; }
+  }
 
-  const { totalDia, totalComida } = totalesAlimentosDelDia(fechaInput.value, comida);
-  const topeComida = LIMITES_GASTOS_DEMO.alimentos[comida.toLowerCase()];
+  // Topes: por comida y por día (sumando todo lo que se guarda a la vez).
   const topeDia = LIMITES_GASTOS_DEMO.alimentos.montoMaximoDia;
-  if (totalComida + costo > topeComida) { mostrarToast(`Supera el tope de ${comida.toLowerCase()} (S/ ${topeComida.toFixed(2)}).`); return; }
-  if (totalDia + costo > topeDia) { mostrarToast(`Supera el tope del día (S/ ${topeDia.toFixed(2)}).`); return; }
+  let sumaNuevos = 0;
+  for (const e of entradas) {
+    const { totalComida } = totalesAlimentosDelDia(fechaInput.value, e.comida);
+    const topeComida = LIMITES_GASTOS_DEMO.alimentos[e.comida.toLowerCase()];
+    if (totalComida + e.costo > topeComida) { mostrarToast(`Supera el tope de ${e.comida.toLowerCase()} (S/ ${topeComida.toFixed(2)}).`); return; }
+    sumaNuevos += e.costo;
+  }
+  const { totalDia } = totalesAlimentosDelDia(fechaInput.value, 'Desayuno');
+  if (totalDia + sumaNuevos > topeDia) { mostrarToast(`Supera el tope del día (S/ ${topeDia.toFixed(2)}).`); return; }
 
-  // Gasto olvidado (§3): la Jornada de esa fecha ya cerró — pide
-  // justificación y respeta el plazo (configurable, 48h por defecto desde
-  // el FIN de esa jornada); pasado el plazo, ni agregar ni editar.
+  // Gasto olvidado (§3): la fecha ya quedó en el pasado — pide justificación
+  // y respeta el plazo (configurable) — ver guardado anterior.
   const justificacionInput = document.getElementById('alimentosJustificacion');
   const esOlvido = esGastoOlvidado(fechaInput.value);
   if (esOlvido) {
@@ -725,39 +1279,40 @@ function guardarGastoAlimentos() {
     if (!justificacionInput.value.trim()) { mostrarErrorCampo(justificacionInput, 'La justificación es obligatoria para un gasto olvidado'); return; }
   }
 
-  // Operación/PER y Cliente ya no se eligen a mano (§1): se derivan de las
-  // operaciones ASIGNADAS al operador (siempre tiene al menos una, no
-  // depende de si hubo precintos usados ese día) — con varias, se unen por
-  // " / " (mismo criterio que usa generarDiasABordoOperador).
+  // Operación/PER y Cliente se derivan de las operaciones ASIGNADAS al
+  // operador (con varias, se unen por " / ").
+  crearJornadaDeclarada('alimentos', fechaInput.value, justificacionInput.value.trim());
   const jornada = jornadaDelGasto(fechaInput.value);
   const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(gastosMovilUsuario) : [];
   const codigoInfo = jornada ? obtenerOCrearCodigoReporteJornada('Alimentos', jornada.id) : null;
 
   const detalle = obtenerDetalleGastoPorTipo('Alimentos', gastosMovilPeriodo.ids['Alimentos']);
-  const filaPrevia = alimentosIndiceEditando !== null ? detalle.grilla[alimentosIndiceEditando] : null;
-  const fila = {
-    fecha: fechaISOaDDMMYYYY(fechaInput.value), comida,
-    lugar: lugarInput.value.trim(),
+  const filaPrevia = editando ? detalle.grilla[alimentosIndiceEditando] : null;
+  const filas = entradas.map(e => ({
+    fecha: fechaISOaDDMMYYYY(fechaInput.value), comida: e.comida,
+    lugar: e.lugarEl.value.trim(),
     cliente: operaciones.length ? operaciones.map(o => o.cliente).join(' / ') : '—',
     operacionPer: operaciones.length ? operaciones.map(o => o.per).join(' / ') : '—',
     jornadaId: jornada ? jornada.id : null,
     codigoJornada: codigoInfo ? codigoInfo.codigo : null,
-    hora: horaInput.value || '—', costo,
-    evidencia: sinSustento ? [] : [...alimentosEvidenciaTemp],
-    sinSustento,
+    hora: e.horaEl.value || '—', costo: e.costo,
+    evidencia: [...alimentosEvidenciaTemp],
+    sinSustento: false,
     agregadoPosterior: esOlvido,
     justificacion: esOlvido ? justificacionInput.value.trim() : '',
     agregadoEn: esOlvido ? ((filaPrevia && filaPrevia.agregadoEn) || new Date().toISOString()) : null
-  };
+  }));
 
-  if (alimentosIndiceEditando !== null) detalle.grilla[alimentosIndiceEditando] = fila;
-  else detalle.grilla.push(fila);
+  if (editando) detalle.grilla[alimentosIndiceEditando] = filas[0];
+  else filas.forEach(fila => detalle.grilla.push(fila));
 
   guardarEstadoGastos();
   cerrarModal('modalRegistrarAlimentos');
   renderTarjetasGastos();
   renderReportesAccordion();
-  mostrarModalConfirmacionMovil('Gasto de Alimentos guardado. Ya lo puede ver tu supervisor.');
+  mostrarModalConfirmacionMovil(filas.length > 1
+    ? `${filas.length} comidas de Alimentos guardadas. Ya las puede ver tu supervisor.`
+    : 'Gasto de Alimentos guardado. Ya lo puede ver tu supervisor.');
 }
 
 function editarGastoAlimentos(indice) {
@@ -767,25 +1322,37 @@ function editarGastoAlimentos(indice) {
   if (!puedeEditarGastoEnFecha(fila.fecha)) { mostrarToast('Ya pasó el plazo para editar este gasto: solo se puede ver y descargar.'); return; }
 
   alimentosIndiceEditando = indice;
+  alimentosComidaEditando = fila.comida;
   alimentosEvidenciaTemp = [...(fila.evidencia || [])];
   document.getElementById('tituloRegistrarAlimentos').textContent = 'Editar Alimentos';
-  document.getElementById('alimentosComida').value = fila.comida;
   document.getElementById('alimentosFecha').value = fechaDDMMYYYYaISO(fila.fecha);
-  document.getElementById('alimentosFecha').max = hoyISO();
-  document.getElementById('alimentosLugar').value = fila.lugar;
-  // fila.hora puede venir en 24h limpio (gastos guardados con el selector
-  // actual) o como texto "hh:mm am/pm" (datos de ejemplo anteriores a este
-  // selector) — horaA24DesdeTexto entiende ambos formatos.
-  document.getElementById('alimentosHora').value = fila.hora === '—' ? '' : horaA24DesdeTexto(fila.hora);
-  actualizarDisplayHora('alimentosHora');
-  document.getElementById('alimentosCosto').value = fila.costo;
-  document.getElementById('alimentosSinSustento').checked = !!fila.sinSustento;
-  toggleEvidenciaAlimentos();
+  document.getElementById('alimentosFecha').max = fechaMaxPeriodo();
   renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
   document.getElementById('alimentosJustificacion').value = fila.justificacion || '';
+  limpiarDeclaracionJornada('alimentos');
   actualizarComidasDisponibles();
+  // fila.hora puede venir en 24h limpio o como texto "hh:mm am/pm" (datos de
+  // ejemplo anteriores) — horaA24DesdeTexto entiende ambos formatos.
+  renderComidasAlimentos({ [fila.comida]: { lugar: fila.lugar, hora: fila.hora === '—' ? '' : horaA24DesdeTexto(fila.hora), costo: fila.costo } });
+  actualizarTopeAlimentos();
   renderPanelInformativoGasto('alimentos', fechaDDMMYYYYaISO(fila.fecha), 'Alimentos');
   abrirModal('modalRegistrarAlimentos');
+}
+
+// Atajos de los botones "Añadir" de cada jornada (ver
+// renderJornadasRecientesGastos): abren el modal de Alimentos o Movilidad
+// con la fecha de esa jornada ya elegida.
+function anadirPendienteAlimentos(fechaISO) {
+  abrirModalRegistrarAlimentos(fechaISO);
+  document.getElementById('alimentosFecha').value = fechaISO;
+  actualizarComidasDisponibles();
+}
+
+function anadirPendienteMovilidad(fechaISO) {
+  abrirModalRegistrarMovilidad(fechaISO);
+  document.getElementById('movilidadFecha').value = fechaISO;
+  actualizarJustificacionMovilidad();
+  actualizarTopeMovilidad();
 }
 
 function eliminarGastoAlimentos(indice) {
@@ -809,39 +1376,84 @@ function eliminarGastoAlimentos(indice) {
 let movilidadEvidenciaTemp = [];
 let movilidadIndiceEditando = null;
 
-function abrirModalRegistrarMovilidad() {
+let movilidadViajeSeq = 0;
+let movilidadViajesIds = [];
+
+function abrirModalRegistrarMovilidad(fechaISO) {
+  const fechaInicial = fechaISO || fechaMaxPeriodo();
+  if (!jornadaPermiteRegistrar(fechaInicial)) return;
   movilidadIndiceEditando = null;
   movilidadEvidenciaTemp = [];
+  tarjetasGastoContraidas.clear();
   document.getElementById('tituloRegistrarMovilidad').textContent = 'Registrar Movilidad';
-  document.getElementById('movilidadFecha').value = hoyISO();
-  document.getElementById('movilidadFecha').max = hoyISO();
+  document.getElementById('movilidadFecha').value = fechaInicial;
+  document.getElementById('movilidadFecha').max = fechaMaxPeriodo();
   document.getElementById('movilidadFecha').min = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
-  document.getElementById('movilidadEmpresa').value = '';
-  document.getElementById('movilidadDistritoPartida').value = '';
-  document.getElementById('movilidadDistritoDestino').value = '';
-  document.getElementById('movilidadMotivo').value = '';
-  document.getElementById('movilidadHoras').value = '';
-  document.getElementById('movilidadImporte').value = '';
-  document.getElementById('movilidadSinSustento').checked = false;
-  toggleEvidenciaMovilidad();
+  renderViajesMovilidad([{}]);
   renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
   document.getElementById('movilidadJustificacion').value = '';
+  limpiarDeclaracionJornada('movilidad');
   actualizarJustificacionMovilidad();
   actualizarTopeMovilidad();
-  renderPanelInformativoGasto('movilidad', hoyISO(), 'Movilidad');
+  renderPanelInformativoGasto('movilidad', fechaInicial, 'Movilidad');
   abrirModal('modalRegistrarMovilidad');
 }
 
-function toggleEvidenciaMovilidad() {
-  const marcado = document.getElementById('movilidadSinSustento').checked;
-  document.getElementById('movilidadEvidenciaGroup').style.display = marcado ? 'none' : '';
+// Un registro de Movilidad admite varios viajes: cada uno es una tarjeta con
+// su empresa, ruta, horas e importe, y cada uno se guarda como su propia fila.
+function renderViajesMovilidad(valores) {
+  const cont = document.getElementById('movilidadViajesLista');
+  if (!cont) return;
+  const editando = movilidadIndiceEditando !== null;
+  movilidadViajesIds = valores.map(v => v.k || ++movilidadViajeSeq);
+  cont.innerHTML = valores.map((v, i) => {
+    const k = movilidadViajesIds[i];
+    const quitar = !editando && valores.length > 1
+      ? `<button type="button" class="gastos-multi-card-quitar" onclick="quitarViajeMovilidad(${k})">Quitar</button>` : '';
+    return `${abrirTarjetaGasto(`mov_${k}`, `Viaje ${i + 1}`, '', quitar)}
+      ${htmlCampoGasto('Empresa', `movV_${k}_empresa`, ICONO_CAMION_GASTO, 'type="text"', v.empresa)}
+      ${htmlCampoGasto('Distrito de partida', `movV_${k}_partida`, ICONO_LUGAR_GASTO, 'type="text"', v.partida)}
+      ${htmlCampoGasto('Distrito de destino', `movV_${k}_destino`, ICONO_LUGAR_GASTO, 'type="text"', v.destino)}
+      ${htmlCampoGasto('Motivo', `movV_${k}_motivo`, ICONO_MOTIVO_GASTO, 'type="text"', v.motivo)}
+      ${htmlCampoGasto('Horas', `movV_${k}_horas`, ICONO_RELOJ_GASTO, 'type="text" placeholder="Ej. 2 horas"', v.horas)}
+      ${htmlCampoGasto('Importe (S/)', `movV_${k}_importe`, ICONO_SOLES_GASTO, 'type="number" step="0.01" oninput="actualizarTopeMovilidad()"', v.importe)}
+    ${CERRAR_TARJETA_GASTO}`;
+  }).join('');
+  cont.querySelectorAll('.gastos-multi-card.contraida').forEach(actualizarResumenTarjetaGasto);
+  const btn = document.getElementById('btnAgregarViaje');
+  if (btn) btn.style.display = editando ? 'none' : '';
+}
+
+function leerViajesMovilidad() {
+  const val = (k, campo) => { const el = document.getElementById(`movV_${k}_${campo}`); return el ? el.value : ''; };
+  return movilidadViajesIds.map(k => ({
+    k, empresa: val(k, 'empresa'), partida: val(k, 'partida'), destino: val(k, 'destino'),
+    motivo: val(k, 'motivo'), horas: val(k, 'horas'), importe: val(k, 'importe')
+  }));
+}
+
+function agregarViajeMovilidad() {
+  const vals = leerViajesMovilidad();
+  vals.push({});
+  renderViajesMovilidad(vals);
+  actualizarTopeMovilidad();
+  const ultimo = document.getElementById(`movV_${movilidadViajesIds[movilidadViajesIds.length - 1]}_empresa`);
+  if (ultimo) ultimo.focus();
+}
+
+function quitarViajeMovilidad(k) {
+  renderViajesMovilidad(leerViajesMovilidad().filter(v => v.k !== k));
+  actualizarTopeMovilidad();
 }
 
 function agregarEvidenciaMovilidad(input) {
   if (!input.files || !input.files.length) return;
-  movilidadEvidenciaTemp.push(`Evidencia ${movilidadEvidenciaTemp.length + 1} (${input.files[0].name})`);
+  const archivo = input.files[0];
   input.value = '';
-  renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
+  guardarEvidenciaImagen(archivo, movilidadEvidenciaTemp.length + 1, clave => {
+    movilidadEvidenciaTemp.push(clave);
+    renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
+  });
 }
 
 function totalMovilidadDelDia(fechaISODia) {
@@ -858,39 +1470,45 @@ function totalMovilidadDelDia(fechaISODia) {
 function actualizarTopeMovilidad() {
   const span = document.getElementById('movilidadTopeTexto');
   const fecha = document.getElementById('movilidadFecha').value;
-  const importe = parseFloat(document.getElementById('movilidadImporte').value) || 0;
+  if (!span) return;
   if (!fecha) { span.textContent = ''; return; }
+  const suma = leerViajesMovilidad().reduce((acc, v) => acc + (parseFloat(v.importe) || 0), 0);
   const totalDia = totalMovilidadDelDia(fecha);
   const topeViaje = LIMITES_GASTOS_DEMO.movilidad.montoMaximoViaje;
   const topeDia = LIMITES_GASTOS_DEMO.movilidad.montoMaximoDia;
-  span.textContent = `Tope por viaje: S/ ${importe.toFixed(2)} / S/ ${topeViaje.toFixed(2)} · Tope del día: S/ ${(totalDia + importe).toFixed(2)} / S/ ${topeDia.toFixed(2)}`;
+  span.textContent = `Tope por viaje: S/ ${topeViaje.toFixed(2)} · Total de estos viajes: S/ ${suma.toFixed(2)} · Tope del día: S/ ${(totalDia + suma).toFixed(2)} / S/ ${topeDia.toFixed(2)}`;
 }
 
+// Guarda de una sola vez todos los viajes del registro (cada uno como su
+// propia fila) — o el único viaje en edición.
 function guardarGastoMovilidad() {
   const fechaInput = document.getElementById('movilidadFecha');
-  const empresaInput = document.getElementById('movilidadEmpresa');
-  const partidaInput = document.getElementById('movilidadDistritoPartida');
-  const destinoInput = document.getElementById('movilidadDistritoDestino');
-  const motivoInput = document.getElementById('movilidadMotivo');
-  const horasInput = document.getElementById('movilidadHoras');
-  const importeInput = document.getElementById('movilidadImporte');
-  const sinSustento = document.getElementById('movilidadSinSustento').checked;
+  const editando = movilidadIndiceEditando !== null;
 
   if (!fechaInput.value) { mostrarErrorCampo(fechaInput, 'Selecciona una fecha'); return; }
   if (fechaInput.value > hoyISO()) { mostrarErrorCampo(fechaInput, 'La fecha no puede ser futura'); return; }
-  if (!empresaInput.value.trim()) { mostrarErrorCampo(empresaInput, 'Ingresa la empresa'); return; }
-  const importe = parseFloat(importeInput.value);
-  if (isNaN(importe) || importe <= 0) { mostrarErrorCampo(importeInput, 'Ingresa un importe válido'); return; }
+
+  const viajes = leerViajesMovilidad();
+  const topeViaje = LIMITES_GASTOS_DEMO.movilidad.montoMaximoViaje;
+  const topeDia = LIMITES_GASTOS_DEMO.movilidad.montoMaximoDia;
+  let suma = 0;
+  for (let i = 0; i < viajes.length; i++) {
+    const v = viajes[i];
+    const n = viajes.length > 1 ? ` del viaje ${i + 1}` : '';
+    if (!v.empresa.trim()) { errorCampoGasto(document.getElementById(`movV_${v.k}_empresa`), `Ingresa la empresa${n}`); return; }
+    const importe = parseFloat(v.importe);
+    if (isNaN(importe) || importe <= 0) { errorCampoGasto(document.getElementById(`movV_${v.k}_importe`), `Ingresa un importe válido${n}`); return; }
+    if (importe > topeViaje) { mostrarToast(`El viaje ${i + 1} supera el tope por viaje (S/ ${topeViaje.toFixed(2)}).`); return; }
+    v.importeNum = importe;
+    suma += importe;
+  }
 
   // §3: Movilidad solo tiene tope de monto (sin corte horario), pero sigue
   // exigiendo una jornada marcada/declarada en esa fecha.
-  if (!jornadaDelGasto(fechaInput.value)) { mostrarToast('No hay una jornada marcada o declarada en esa fecha: no se puede registrar el gasto.'); return; }
+  if (!validarDeclaracionJornada('movilidad', fechaInput.value)) return;
 
-  const topeViaje = LIMITES_GASTOS_DEMO.movilidad.montoMaximoViaje;
-  const topeDia = LIMITES_GASTOS_DEMO.movilidad.montoMaximoDia;
-  if (importe > topeViaje) { mostrarToast(`Supera el tope por viaje (S/ ${topeViaje.toFixed(2)}).`); return; }
   const totalDia = totalMovilidadDelDia(fechaInput.value);
-  if (totalDia + importe > topeDia) { mostrarToast(`Supera el tope del día (S/ ${topeDia.toFixed(2)}).`); return; }
+  if (totalDia + suma > topeDia) { mostrarToast(`Supera el tope del día (S/ ${topeDia.toFixed(2)}).`); return; }
 
   // Gasto olvidado (§3): ver guardarGastoAlimentos.
   const justificacionInput = document.getElementById('movilidadJustificacion');
@@ -901,34 +1519,39 @@ function guardarGastoMovilidad() {
   }
 
   // Operaciones involucradas de la jornada de esa fecha (§1) — solo
-  // informativo (ver renderPanelInformativoGasto); Movilidad no tenía
-  // Cliente/Operación-PER como campo, pero igual queda ligada a su jornada.
+  // informativo; Movilidad igual queda ligada a su jornada.
+  crearJornadaDeclarada('movilidad', fechaInput.value, justificacionInput.value.trim());
   const jornadaMov = jornadaDelGasto(fechaInput.value);
   const codigoInfoMov = jornadaMov ? obtenerOCrearCodigoReporteJornada('Movilidad', jornadaMov.id) : null;
 
   const detalle = obtenerDetalleGastoPorTipo('Movilidad', gastosMovilPeriodo.ids['Movilidad']);
-  const filaPrevia = movilidadIndiceEditando !== null ? detalle.grilla[movilidadIndiceEditando] : null;
-  const fila = {
-    fecha: fechaISOaDDMMYYYY(fechaInput.value), empresa: empresaInput.value.trim(),
-    distritoPartida: partidaInput.value.trim() || '—', distritoDestino: destinoInput.value.trim() || '—',
-    motivo: motivoInput.value.trim() || '—', importeDia: importe, totalDia: importe,
-    jornadaId: jornadaMov ? jornadaMov.id : null,
-    codigoJornada: codigoInfoMov ? codigoInfoMov.codigo : null,
-    evidencia: sinSustento ? [] : [...movilidadEvidenciaTemp], sinSustento,
-    agregadoPosterior: esOlvido,
-    justificacion: esOlvido ? justificacionInput.value.trim() : '',
-    agregadoEn: esOlvido ? ((filaPrevia && filaPrevia.agregadoEn) || new Date().toISOString()) : null
-  };
-  if (horasInput.value.trim()) fila.horas = horasInput.value.trim();
+  const filaPrevia = editando ? detalle.grilla[movilidadIndiceEditando] : null;
+  const filas = viajes.map(v => {
+    const fila = {
+      fecha: fechaISOaDDMMYYYY(fechaInput.value), empresa: v.empresa.trim(),
+      distritoPartida: v.partida.trim() || '—', distritoDestino: v.destino.trim() || '—',
+      motivo: v.motivo.trim() || '—', importeDia: v.importeNum, totalDia: v.importeNum,
+      jornadaId: jornadaMov ? jornadaMov.id : null,
+      codigoJornada: codigoInfoMov ? codigoInfoMov.codigo : null,
+      evidencia: [...movilidadEvidenciaTemp], sinSustento: false,
+      agregadoPosterior: esOlvido,
+      justificacion: esOlvido ? justificacionInput.value.trim() : '',
+      agregadoEn: esOlvido ? ((filaPrevia && filaPrevia.agregadoEn) || new Date().toISOString()) : null
+    };
+    if (v.horas.trim()) fila.horas = v.horas.trim();
+    return fila;
+  });
 
-  if (movilidadIndiceEditando !== null) detalle.grilla[movilidadIndiceEditando] = fila;
-  else detalle.grilla.push(fila);
+  if (editando) detalle.grilla[movilidadIndiceEditando] = filas[0];
+  else filas.forEach(fila => detalle.grilla.push(fila));
 
   guardarEstadoGastos();
   cerrarModal('modalRegistrarMovilidad');
   renderTarjetasGastos();
   renderReportesAccordion();
-  mostrarModalConfirmacionMovil('Gasto de Movilidad guardado. Ya lo puede ver tu supervisor.');
+  mostrarModalConfirmacionMovil(filas.length > 1
+    ? `${filas.length} viajes de Movilidad guardados. Ya los puede ver tu supervisor.`
+    : 'Gasto de Movilidad guardado. Ya lo puede ver tu supervisor.');
 }
 
 function editarGastoMovilidad(indice) {
@@ -941,17 +1564,17 @@ function editarGastoMovilidad(indice) {
   movilidadEvidenciaTemp = [...(fila.evidencia || [])];
   document.getElementById('tituloRegistrarMovilidad').textContent = 'Editar Movilidad';
   document.getElementById('movilidadFecha').value = fechaDDMMYYYYaISO(fila.fecha);
-  document.getElementById('movilidadFecha').max = hoyISO();
-  document.getElementById('movilidadEmpresa').value = fila.empresa;
-  document.getElementById('movilidadDistritoPartida').value = fila.distritoPartida === '—' ? '' : fila.distritoPartida;
-  document.getElementById('movilidadDistritoDestino').value = fila.distritoDestino === '—' ? '' : fila.distritoDestino;
-  document.getElementById('movilidadMotivo').value = fila.motivo === '—' ? '' : fila.motivo;
-  document.getElementById('movilidadHoras').value = fila.horas || '';
-  document.getElementById('movilidadImporte').value = fila.importeDia;
-  document.getElementById('movilidadSinSustento').checked = !!fila.sinSustento;
-  toggleEvidenciaMovilidad();
+  document.getElementById('movilidadFecha').max = fechaMaxPeriodo();
+  renderViajesMovilidad([{
+    empresa: fila.empresa,
+    partida: fila.distritoPartida === '—' ? '' : fila.distritoPartida,
+    destino: fila.distritoDestino === '—' ? '' : fila.distritoDestino,
+    motivo: fila.motivo === '—' ? '' : fila.motivo,
+    horas: fila.horas || '', importe: fila.importeDia
+  }]);
   renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
   document.getElementById('movilidadJustificacion').value = fila.justificacion || '';
+  limpiarDeclaracionJornada('movilidad');
   actualizarJustificacionMovilidad();
   actualizarTopeMovilidad();
   renderPanelInformativoGasto('movilidad', fechaDDMMYYYYaISO(fila.fecha), 'Movilidad');
@@ -989,8 +1612,7 @@ let reportesAcordeonAbiertos = {};
 // Filtros (§5): búsqueda libre (código/PER/cliente) + rango de fechas +
 // orden — se aplican sobre el tipo seleccionado en los chips.
 let reportesBusqueda = '';
-let reportesDesdeFiltro = '';
-let reportesHastaFiltro = '';
+let reportesFechaFiltro = ''; // una sola fecha (ISO) dentro del período elegido
 let reportesOrden = 'desc'; // 'desc' = más recientes primero
 
 function hayPantallaReportes() { return !!document.getElementById('reportesAccordion'); }
@@ -1101,27 +1723,30 @@ function cambiarTabReportes(tipo) {
 
 function actualizarFiltrosReportes() {
   const busq = document.getElementById('reportesBusqueda');
-  const desde = document.getElementById('reportesDesde');
-  const hasta = document.getElementById('reportesHasta');
+  const fecha = document.getElementById('reportesFecha');
   reportesBusqueda = busq ? busq.value.trim().toLowerCase() : '';
-  reportesDesdeFiltro = desde ? desde.value : '';
-  reportesHastaFiltro = hasta ? hasta.value : '';
+  reportesFechaFiltro = fecha ? fecha.value : '';
+  // Solo fechas del período elegido: una fecha tipeada fuera de rango se descarta.
+  if (fecha && reportesFechaFiltro && ((fecha.min && reportesFechaFiltro < fecha.min) || (fecha.max && reportesFechaFiltro > fecha.max))) {
+    fecha.value = ''; reportesFechaFiltro = '';
+    if (typeof mostrarToast === 'function') mostrarToast('Elige una fecha dentro del período seleccionado.');
+  }
   renderReportesAccordion();
 }
 
 function limpiarFiltrosReportes() {
-  reportesBusqueda = ''; reportesDesdeFiltro = ''; reportesHastaFiltro = '';
+  reportesBusqueda = ''; reportesFechaFiltro = '';
   const busq = document.getElementById('reportesBusqueda');
-  const desde = document.getElementById('reportesDesde');
-  const hasta = document.getElementById('reportesHasta');
+  const fecha = document.getElementById('reportesFecha');
   if (busq) busq.value = '';
-  if (desde) desde.value = '';
-  if (hasta) hasta.value = '';
+  if (fecha) fecha.value = '';
   renderReportesAccordion();
 }
 
 function cambiarOrdenReportes() {
   reportesOrden = reportesOrden === 'desc' ? 'asc' : 'desc';
+  const txt = document.getElementById('reportesOrdenTexto');
+  if (txt) txt.textContent = reportesOrden === 'desc' ? 'Más recientes' : 'Más antiguas';
   renderReportesAccordion();
 }
 
@@ -1136,8 +1761,7 @@ function filaCoincideBusqueda(f, codigo, texto) {
 
 function filaDentroDeRango(f) {
   const fechaISO = fechaDDMMYYYYaISO(f.fecha);
-  if (reportesDesdeFiltro && fechaISO < reportesDesdeFiltro) return false;
-  if (reportesHastaFiltro && fechaISO > reportesHastaFiltro) return false;
+  if (reportesFechaFiltro && fechaISO !== reportesFechaFiltro) return false;
   return true;
 }
 
@@ -1150,17 +1774,11 @@ function toggleReportesAcordeon(clave) {
 // justificación — se muestra así en el reporte en vez de verse igual que
 // uno registrado el mismo día de la jornada.
 function notaAgregadoPosterior(f) {
-  if (!f.agregadoPosterior) return '';
-  const fechaAgregado = f.agregadoEn ? new Date(f.agregadoEn).toLocaleString('es-PE') : '—';
-  return `
-    <div class="reportes-campo reportes-campo-olvido"><span>Agregado posterior</span><strong>${fechaAgregado}</strong></div>
-    <div class="reportes-campo"><span>Justificación</span><strong>${f.justificacion || '—'}</strong></div>`;
+  return '';
 }
 
 function camposAcordeonReporte(tipo, f) {
-  const chipsEvidencia = (f.evidencia || []).length
-    ? f.evidencia.map(ev => `<span class="gastos-evidencia-chip">${ev}</span>`).join('')
-    : `<span class="gastos-evidencia-vacia">${f.sinSustento ? 'Sin sustento' : 'Sin evidencia'}</span>`;
+  const chipsEvidencia = htmlEvidenciaGrid(f.evidencia || [], f.sinSustento ? 'Sin sustento' : 'Sin evidencia');
   const olvido = notaAgregadoPosterior(f);
 
   if (tipo === 'Alimentos') return `
@@ -1181,9 +1799,15 @@ function camposAcordeonReporte(tipo, f) {
     <div class="reportes-campo"><span>Buque</span><strong>${f.buque || '—'}</strong></div>`;
 }
 
-// §5: ahora cada "tarjeta" es un reporte de jornada+tipo (ya no una fila
-// suelta) — búsqueda por código/PER/cliente, rango de fechas y tipo (incl.
-// "Todos", que mezcla los 3 tipos del período) se aplican antes de agrupar.
+// Reportes es solo de CONSULTA: una tarjeta por jornada, con lo registrado en
+// cada tipo (Alimentos / Movilidad / Días a Bordo) como en la web. Operaciones
+// y precintos se muestran una sola vez por jornada (no por tipo). Cada
+// jornada se descarga en PDF y queda marcada como "Descargado".
+// Búsqueda por código/PER/cliente, rango de fechas y tipo (incl. "Todos") se
+// aplican antes de agrupar.
+const DESCARGAS_JORNADA_GASTOS = tgCargarCatalogo('descargasJornadaGastosData', {});
+function claveDescargaJornada(fechaISO) { return `${gastosMovilUsuario}|${fechaISO}`; }
+
 function renderReportesAccordion() {
   if (!hayPantallaReportes()) return;
   const cont = document.getElementById('reportesAccordion');
@@ -1211,7 +1835,7 @@ function renderReportesAccordion() {
   });
 
   if (!filas.length) {
-    const hayFiltrosActivos = reportesBusqueda || reportesDesdeFiltro || reportesHastaFiltro;
+    const hayFiltrosActivos = reportesBusqueda || reportesFechaFiltro;
     cont.innerHTML = huboAlgoSinFiltrar && hayFiltrosActivos
       ? `<p class="submodulo-tabla-vacio">Sin reportes para los filtros elegidos.</p>
          <button type="button" class="btn-accion btn-cancelar" style="width:100%;margin-top:8px;" onclick="limpiarFiltrosReportes()">Limpiar filtros</button>`
@@ -1221,62 +1845,70 @@ function renderReportesAccordion() {
     return;
   }
 
-  // Un grupo = una jornada+tipo = UN reporte con su código único (§1) — con
-  // "Todos" puede haber más de un grupo por fecha (uno por tipo).
-  const porGrupo = {};
-  filas.forEach(f => { (porGrupo[`${f._tipo}|${f.fecha}`] = porGrupo[`${f._tipo}|${f.fecha}`] || []).push(f); });
-  const claves = Object.keys(porGrupo).sort((a, b) => {
-    const cmp = fechaDDMMYYYYaISO(a.split('|')[1]).localeCompare(fechaDDMMYYYYaISO(b.split('|')[1]));
+  // Una tarjeta por jornada (fecha); dentro, una sección por tipo.
+  const porFecha = {};
+  filas.forEach(f => {
+    const dia = porFecha[f.fecha] || (porFecha[f.fecha] = {});
+    (dia[f._tipo] = dia[f._tipo] || []).push(f);
+  });
+  const fechas = Object.keys(porFecha).sort((a, b) => {
+    const cmp = fechaDDMMYYYYaISO(a).localeCompare(fechaDDMMYYYYaISO(b));
     return reportesOrden === 'desc' ? -cmp : cmp;
   });
 
-  if (contadorEl) contadorEl.textContent = `${claves.length} reporte${claves.length === 1 ? '' : 's'}`;
+  if (contadorEl) contadorEl.textContent = `${fechas.length} jornada${fechas.length === 1 ? '' : 's'}`;
 
-  cont.innerHTML = claves.map(clave => {
-    const [tipo, fecha] = clave.split('|');
-    const filasGrupo = porGrupo[clave];
-    const campoMonto = campoMontoPorTipo[tipo];
-    const totalDia = filasGrupo.reduce((acc, f) => acc + (f.pendiente ? 0 : Number(f[campoMonto]) || 0), 0);
-    const codigo = filasGrupo[0]._codigo || 'Sin registrar';
-    const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(gastosMovilUsuario) : [];
-    const precintosDia = (typeof obtenerPrecintosDeJornada === 'function') ? obtenerPrecintosDeJornada(gastosMovilUsuario, fechaDDMMYYYYaISO(fecha)) : [];
+  const operaciones = (typeof obtenerOperacionesAsignadasOperador === 'function') ? obtenerOperacionesAsignadasOperador(gastosMovilUsuario) : [];
+  const fmtDescarga = iso => {
+    const f = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(f.getDate())}/${pad(f.getMonth() + 1)} ${horaA12(`${pad(f.getHours())}:${pad(f.getMinutes())}`)}`;
+  };
 
-    const filasHTML = filasGrupo.map((f, iDia) => {
-      const claveAcordeon = `${tipo}-${fecha}-${iDia}`;
-      const abierto = !!reportesAcordeonAbiertos[claveAcordeon];
-      const titulo = tipo === 'Alimentos' ? f.comida : tipo === 'Movilidad' ? `Movilidad ${iDia + 1}` : (f.detalle || `Día ${iDia + 1}`);
-      const monto = f.pendiente ? 'Pendiente' : `S/ ${Number(f[campoMonto] || 0).toFixed(2)}`;
-      const acciones = tipo === 'Días a Bordo' ? '' : `
-        <div class="reportes-acordeon-acciones">
-          <button type="button" class="btn-accion btn-editar" onclick="event.stopPropagation(); ${tipo === 'Alimentos' ? 'editarGastoAlimentos' : 'editarGastoMovilidad'}(${f._indice})">Editar</button>
-          <button type="button" class="btn-accion btn-eliminar" onclick="event.stopPropagation(); ${tipo === 'Alimentos' ? 'eliminarGastoAlimentos' : 'eliminarGastoMovilidad'}(${f._indice})">Eliminar</button>
-        </div>`;
+  cont.innerHTML = fechas.map(fecha => {
+    const dia = porFecha[fecha];
+    const fechaISO = fechaDDMMYYYYaISO(fecha);
+    const precintosDia = (typeof obtenerPrecintosDeJornada === 'function') ? obtenerPrecintosDeJornada(gastosMovilUsuario, fechaISO) : [];
+    let totalJornada = 0;
+
+    // Una línea por reporte (tipo): al tocarla se abre el detalle en un modal.
+    const secciones = ['Alimentos', 'Movilidad', 'Días a Bordo'].filter(t => dia[t]).map(tipo => {
+      const filasTipo = dia[tipo];
+      const totalTipo = filasTipo.reduce((acc, f) => acc + (f.pendiente ? 0 : Number(f[campoMontoPorTipo[tipo]]) || 0), 0);
+      totalJornada += totalTipo;
+      const codigo = filasTipo[0]._codigo || 'Sin registrar';
+      const n = filasTipo.length;
       return `
-        <div class="reportes-acordeon-item${abierto ? ' abierto' : ''}">
-          <button type="button" class="reportes-acordeon-header" onclick="toggleReportesAcordeon('${claveAcordeon}')">
-            <span class="reportes-acordeon-numero">${iDia + 1}</span>
-            <span class="reportes-acordeon-titulo">${titulo}</span>
-            <span class="reportes-acordeon-monto">${monto}</span>
-            <svg class="reportes-acordeon-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="reportes-acordeon-body">
-            ${camposAcordeonReporte(tipo, f)}
-            ${acciones}
-          </div>
-        </div>`;
+        <button type="button" class="reportes-tipo-fila" onclick="abrirDetalleReporte('${tipo}', '${fecha}')">
+          <span class="reportes-tipo-info">
+            <span class="reportes-tipo-nombre">${tipo}</span>
+            <span class="reportes-tipo-meta">${codigo} · ${n} registro${n === 1 ? '' : 's'}</span>
+          </span>
+          <span class="reportes-tipo-total">S/ ${totalTipo.toFixed(2)}</span>
+          <svg class="reportes-tipo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+        </button>`;
     }).join('');
+
+    const desc = DESCARGAS_JORNADA_GASTOS[claveDescargaJornada(fechaISO)];
+    const estadoDescarga = desc
+      ? `<span class="badge badge-vigente" title="Descargado el ${fmtDescarga(desc.fecha)}">Descargado ${fmtDescarga(desc.fecha)}</span>`
+      : '<span class="badge badge-gris">Sin descargar</span>';
 
     return `
       <div class="reportes-dia-grupo">
         <div class="reportes-dia-header">
-          <span class="reportes-dia-fecha">${tipoSel === 'Todos' ? tipo + ' · ' : ''}${fecha}</span>
-          <span class="reportes-dia-codigo">${codigo}</span>
+          <span class="reportes-dia-fecha">${fecha}</span>
+          ${estadoDescarga}
         </div>
         <div class="reportes-dia-operaciones">${textoOperacionesInvolucradas(operaciones)} · ${precintosDia.length ? `Precintos usados (${precintosDia.length})` : 'Sin precintos usados'}</div>
-        <div class="reportes-dia-header">
-          <span class="reportes-dia-total">Total: S/ ${totalDia.toFixed(2)}</span>
+        ${secciones}
+        <div class="reportes-dia-pie">
+          <span class="reportes-dia-total">Total jornada: S/ ${totalJornada.toFixed(2)}</span>
+          <button type="button" class="btn-accion btn-guardar gastos-btn-registrar" onclick="iniciarDescargaJornada('${fechaISO}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ${desc ? 'Descargar de nuevo' : 'Descargar PDF'}
+          </button>
         </div>
-        ${filasHTML}
       </div>`;
   }).join('');
 
@@ -1284,39 +1916,48 @@ function renderReportesAccordion() {
   totalEl.textContent = `Total ${tipoSel === 'Todos' ? 'general' : 'del período'}: S/ ${totalGeneral.toFixed(2)}`;
 }
 
+// Detalle de un reporte (tipo) de una jornada en un modal: todos sus
+// registros con los campos completos, sin apretar la tarjeta de la lista.
+function abrirDetalleReporte(tipo, fecha) {
+  const detalle = obtenerDetalleGastoPorTipo(tipo, gastosMovilPeriodo.ids[tipo]);
+  const filas = detalle.grilla.filter(f => f.fecha === fecha);
+  const campoMonto = { 'Alimentos': 'costo', 'Movilidad': 'totalDia', 'Días a Bordo': 'monto' }[tipo];
+  const codigoCampo = tipo === 'Días a Bordo' ? 'codigo' : 'codigoJornada';
+  const total = filas.reduce((acc, f) => acc + (f.pendiente ? 0 : Number(f[campoMonto]) || 0), 0);
+
+  document.getElementById('detalleReporteTitulo').textContent = tipo;
+  document.getElementById('detalleReporteSub').textContent = `${fecha} · ${(filas[0] && filas[0][codigoCampo]) || 'Sin registrar'}`;
+  document.getElementById('detalleReporteLista').innerHTML = filas.map((f, i) => {
+    const titulo = tipo === 'Alimentos' ? f.comida : tipo === 'Movilidad' ? `Viaje ${i + 1}` : (f.detalle || `Día ${i + 1}`);
+    const monto = f.pendiente ? 'Pendiente' : `S/ ${Number(f[campoMonto] || 0).toFixed(2)}`;
+    return `
+      <div class="detalle-reg">
+        <div class="detalle-reg-cab">
+          <span class="reportes-acordeon-numero">${i + 1}</span>
+          <span class="detalle-reg-titulo">${titulo}</span>
+          <span class="detalle-reg-monto">${monto}</span>
+        </div>
+        ${camposAcordeonReporte(tipo, f)}
+      </div>`;
+  }).join('') || '<p class="submodulo-tabla-vacio">Sin registros.</p>';
+  document.getElementById('detalleReporteTotal').textContent = `Total: S/ ${total.toFixed(2)}`;
+  abrirModal('modalDetalleReporte');
+}
+
 /* =================================================
-   DESCARGA DESDE EL MÓVIL — "se firman de manera automática validando su
+   DESCARGA DE LA JORNADA — "se firman de manera automática validando su
    huella": se simula la validación biométrica (setTimeout + estado de
    carga, mismo patrón que la geolocalización simulada de Operaciones, sin
-   hardware real) antes de generar el archivo. El archivo sale IDÉNTICO al
-   que arma la web para ese mismo usuario/tipo/rango (mismos builders de
-   descarga-gastos.js), así que trae la misma marca de agua de "descargado
-   desde este sistema" sin tener que duplicar la plantilla.
+   hardware real) antes de generar el PDF. El PDF sale IDÉNTICO al que arma
+   la web para ese mismo día (mismos builders de descarga-gastos.js: misma
+   planilla y marca de agua de "descargado desde este sistema"). Al terminar
+   la jornada queda marcada como "Descargado" con fecha y hora.
 ================================================= */
 let reportesDescargaPendiente = null;
 
-// "Todos" es la vista por defecto de Reportes, pero la descarga (igual que
-// en la web) es siempre de UN tipo puntual (columnas distintas por tipo) —
-// con "Todos" activo se resuelve solo al tipo del registro más reciente del
-// período (el recién realizado), sin que el operador tenga que cambiar de
-// pestaña a mano solo para descargar lo que acaba de cargar.
-function tipoReporteMasReciente() {
-  if (!gastosMovilPeriodo) return 'Alimentos';
-  let mejorTipo = null, mejorFecha = null;
-  ['Alimentos', 'Movilidad', 'Días a Bordo'].forEach(tipo => {
-    const detalle = obtenerDetalleGastoPorTipo(tipo, gastosMovilPeriodo.ids[tipo]);
-    detalle.grilla.forEach(f => {
-      const fechaISO = fechaDDMMYYYYaISO(f.fecha);
-      if (!mejorFecha || fechaISO > mejorFecha) { mejorFecha = fechaISO; mejorTipo = tipo; }
-    });
-  });
-  return mejorTipo || 'Alimentos';
-}
-
-function iniciarDescargaReporte(formato) {
+function iniciarDescargaJornada(fechaISO) {
   if (!gastosMovilPeriodo) return;
-  const tipo = reportesTabActiva === 'Todos' ? tipoReporteMasReciente() : reportesTabActiva;
-  reportesDescargaPendiente = { tipo, formato };
+  reportesDescargaPendiente = { fechaISO };
   document.getElementById('huellaEstadoTexto').textContent = 'Coloca tu huella en el sensor…';
   document.getElementById('huellaIcono').classList.remove('huella-ok');
   abrirModal('modalValidarHuella');
@@ -1330,25 +1971,24 @@ function iniciarDescargaReporte(formato) {
   }, 1300);
 }
 
-async function confirmarDescargaConHuella() {
+function confirmarDescargaConHuella() {
   if (!reportesDescargaPendiente) return;
-  const { tipo, formato } = reportesDescargaPendiente;
+  const { fechaISO } = reportesDescargaPendiente;
   reportesDescargaPendiente = null;
   cerrarModal('modalValidarHuella');
 
-  const d = prepararDescargaGastos({
-    usuario: gastosMovilUsuario, tipo,
-    desde: fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde),
-    hasta: fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaHasta)
-  });
-  if (!d) return;
+  const reporte = construirHTMLReporteJornadaGastos(gastosMovilUsuario, fechaISO);
+  if (!reporte) return;
+  abrirVentanaHTMLGastos(reporte.html, { imprimir: true });
 
-  if (formato === 'excel') await descargarWorkbookGastos(d);
-  else abrirVentanaReporteGastos(d, { imprimir: true });
-
-  registrarUltimaDescargaGastos(gastosMovilUsuario, tipo, d.desde, d.hasta);
+  // Misma marca de "última descarga" que ve la web, por tipo y para ese día.
+  reporte.tipos.forEach(tipo => registrarUltimaDescargaGastos(gastosMovilUsuario, tipo, fechaISO, fechaISO));
+  DESCARGAS_JORNADA_GASTOS[claveDescargaJornada(fechaISO)] = { fecha: new Date().toISOString(), tipos: reporte.tipos };
+  tgGuardarCatalogo('descargasJornadaGastosData', DESCARGAS_JORNADA_GASTOS);
   guardarEstadoGastos();
-  mostrarModalConfirmacionMovil('Reporte firmado con tu huella y descargado. Ya puedes subirlo a tu otro aplicativo.');
+
+  renderReportesAccordion();
+  mostrarModalConfirmacionMovil(`Reporte de la jornada ${fechaISOaDDMMYYYY(fechaISO)} firmado con tu huella y descargado.`);
 }
 
 document.addEventListener('DOMContentLoaded', inicializarGastosMovil);

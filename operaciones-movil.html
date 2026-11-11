@@ -24,16 +24,15 @@
         <div class="movil-header-titulos">
           <div class="movil-header-titulo">Operaciones</div>
         </div>
-        <!-- Simulación de push (ítem 2): muestra cómo le llegaría esta
-             notificación al celular del operador en tiempo real — ver
-             mostrarSimulacionPush en operaciones-movil.js. -->
-        <button type="button" class="movil-header-campana-btn" onclick="mostrarSimulacionPush()" title="Ver cómo le llegaría la notificación al celular">
+        <!-- Campana de notificaciones: la arma notificaciones-movil.js (abre el
+             panel del inspector; una notificación nueva dispara el banner push). -->
+        <button type="button" class="movil-header-campana-btn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </button>
       </div>
 
       <!-- Banner de notificación simulada (overlay sobre el status bar,
-           como un push real del sistema) — ver mostrarSimulacionPush. -->
+           como un push real del sistema) — ver notifMovilPush en notificaciones-movil.js. -->
       <div class="push-sim-banner" id="pushSimBanner">
         <div class="push-sim-banner-icono">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -436,6 +435,7 @@
 <script src="JS/data-gastos.js"></script>
 <script src="JS/main.js"></script>
 <script src="JS/nav-movil.js"></script>
+<script src="JS/notificaciones-movil.js"></script>
 <script src="JS/operaciones-movil.js"></script>
 <script>renderNavInferiorMovil('operaciones');</script>
 </body>

@@ -111,7 +111,9 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
     cliente: 'Naviera del Sur',
     per: 'PER/09461-25',
     nroViaje: 'V-2201',
-    terminal: 'Supe',
+    puerto: 'Supe',
+    terminal: 'Terminal Supe',
+    muelle: 'Muelle 1',
     operacion: 'Loading',
     personalAsignado: 'Edward Allccaco',
     productos: ['LNG'],
@@ -134,7 +136,9 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
     cliente: 'Pesquera Costa Azul',
     per: 'PER/09512-25',
     nroViaje: 'V-2214',
-    terminal: 'Supe',
+    puerto: 'Supe',
+    terminal: 'Terminal Supe',
+    muelle: 'Muelle 2',
     operacion: 'Discharging',
     // r.bravo tiene la Asignación ASG26000090 (los 3 materiales, caso de
     // prueba del reporte por material) — su viaje/terminal calzan con este.
@@ -161,7 +165,9 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
     cliente: 'Naviera Cordillera',
     per: 'PER/09573-25',
     nroViaje: 'V-2401',
+    puerto: 'Callao',
     terminal: 'Terminal Norte',
+    muelle: 'Muelle 2',
     operacion: 'Discharging',
     personalAsignado: 'Julio César Gómez',
     productos: ['Concentrado de cobre'],
@@ -185,7 +191,9 @@ const OPERACIONES_ASIGNADAS_MOVIL_DEMO = [
     cliente: 'Naviera del Sur',
     per: 'PER/09634-25',
     nroViaje: 'V-2287',
-    terminal: 'Terminal Portuario Multipropósito Muelle Norte',
+    puerto: 'Callao',
+    terminal: 'Terminal Norte',
+    muelle: 'Muelle 1',
     operacion: 'Discharging',
     personalAsignado: 'Juan Torres',
     productos: ['Contenedores'],
@@ -224,7 +232,11 @@ function asegurarJornadasDemoAnteriores(usuario) {
 
   const hoy = new Date(`${obtenerFechaHoyISO()}T00:00:00`);
   let cambio = false;
-  [1, 2].forEach((diasAtras, indice) => {
+  // j.torres es el usuario de prueba de "jornada olvidada": ayer sí tiene
+  // jornada (demo) pero antes de ayer NO, para poder probar la declaración
+  // de jornada dentro del plazo (ver sembrarEscenariosJornadaTorres).
+  const diasDemo = usuario === 'j.torres' ? [1] : [1, 2];
+  diasDemo.forEach((diasAtras, indice) => {
     const fecha = new Date(hoy);
     fecha.setDate(fecha.getDate() - diasAtras);
     const pad = n => String(n).padStart(2, '0');
@@ -470,7 +482,7 @@ function obtenerOperacionesAsignadasOperador(usuario) {
   const nombreCompleto = `${u.nombre} ${u.apellido}`;
   return OPERACIONES_ASIGNADAS_MOVIL_DEMO
     .filter(op => op.personalAsignado === nombreCompleto)
-    .map(op => ({ per: op.per, cliente: op.cliente, terminal: op.terminal, viaje: op.nroViaje, operacion: op.operacion }));
+    .map(op => ({ codigo: op.codigo, per: op.per, cliente: op.cliente, puerto: op.puerto, terminal: op.terminal, muelle: op.muelle, viaje: op.nroViaje, operacion: op.operacion }));
 }
 
 // Precintos (usados o scrap) que el operador reportó en la fecha de una

@@ -36,9 +36,17 @@
            va a definir la web cuando se arme ahí la gestión de períodos,
            por ahora no se muestra para no inventar un valor. -->
       <div class="gastos-periodo-card">
-        <div class="gastos-periodo-card-top">
-          <span class="gastos-periodo-card-nombre" id="gastosPeriodoNombre">—</span>
-          <span class="gastos-periodo-card-rango" id="gastosPeriodoRango">—</span>
+        <div class="gastos-periodo-card-top gastos-periodo-nav">
+          <button type="button" class="gastos-periodo-flecha" id="btnPeriodoAnterior" onclick="cambiarPeriodoGastos(-1)" title="Período anterior" aria-label="Período anterior">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="gastos-periodo-card-centro">
+            <span class="gastos-periodo-card-nombre" id="gastosPeriodoNombre">—</span>
+            <span class="gastos-periodo-card-rango" id="gastosPeriodoRango">—</span>
+          </div>
+          <button type="button" class="gastos-periodo-flecha" id="btnPeriodoSiguiente" onclick="cambiarPeriodoGastos(1)" title="Período siguiente" aria-label="Período siguiente">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
         </div>
         <div class="gastos-periodo-card-resumen">
           <div class="gastos-periodo-card-resumen-item total">
@@ -80,9 +88,9 @@
              lo que se marcó mal en Operaciones (usado/scrap por error) —
              abre modalPrecintosJornadaGastos, con pestañas Usado/Scrap
              igual que el modal "Asignar Precinto" de Operaciones. -->
-        <button type="button" class="btn-accion btn-editar" id="btnVerPrecintosJornada" style="width:100%;justify-content:center;margin-top:2px;display:none;" onclick="abrirModalPrecintosJornadaGastos()">
+        <button type="button" class="gastos-btn-precintos" id="btnVerPrecintosJornada" onclick="abrirModalPrecintosJornadaGastos()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          Precintos
+          <span id="btnVerPrecintosTexto">Precintos usados</span>
         </button>
         <div class="gastos-panel-info-fila"><span>Precintos usados</span><strong id="gastosJornadaPrecintos">—</strong></div>
         <p class="gastos-jornada-plazo" id="gastosJornadaPlazoOlvido"></p>
@@ -90,34 +98,33 @@
       <!-- TARJETAS DE REPORTE DE LA JORNADA (§4.2): Alimentos y Movilidad se
            registran desde acá; Días a Bordo es de solo lectura. -->
       <div class="gastos-tarjetas gastos-tarjetas--jornada">
+        <span class="gastos-jornada-reportes-titulo">Reportes de la jornada</span>
         <div class="gastos-tarjeta">
           <div class="gastos-tarjeta-header">
-            <span class="gastos-tarjeta-titulo">Alimentos</span>
+            <span class="gastos-tarjeta-titulo-grupo"><span class="gastos-tarjeta-titulo">Alimentos</span><span class="badge badge-gris" id="gastosAlimentosEstado">Pendiente</span></span>
             <span class="gastos-tarjeta-total" id="gastosTotalAlimentos">S/ 0.00</span>
           </div>
           <div class="gastos-tarjeta-meta">
             <span class="gastos-tarjeta-codigo" id="gastosAlimentosCodigo">Sin registrar</span>
-            <span class="badge badge-gris" id="gastosAlimentosEstado">Pendiente</span>
+            <button type="button" id="btnRegistrarAlimentos" class="btn-accion btn-guardar gastos-btn-registrar" onclick="abrirModalRegistrarAlimentos()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Registrar
+            </button>
           </div>
           <div class="gastos-comida-chips" id="gastosAlimentosComidasChips"></div>
-          <button type="button" class="btn-accion btn-guardar gastos-btn-registrar" onclick="abrirModalRegistrarAlimentos()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Registrar
-          </button>
         </div>
         <div class="gastos-tarjeta">
           <div class="gastos-tarjeta-header">
-            <span class="gastos-tarjeta-titulo">Movilidad</span>
+            <span class="gastos-tarjeta-titulo-grupo"><span class="gastos-tarjeta-titulo">Movilidad</span><span class="badge badge-gris" id="gastosMovilidadEstado">Pendiente</span></span>
             <span class="gastos-tarjeta-total" id="gastosTotalMovilidad">S/ 0.00</span>
           </div>
           <div class="gastos-tarjeta-meta">
             <span class="gastos-tarjeta-codigo" id="gastosMovilidadCodigo">Sin registrar</span>
-            <span class="badge badge-gris" id="gastosMovilidadEstado">Pendiente</span>
+            <button type="button" id="btnRegistrarMovilidad" class="btn-accion btn-guardar gastos-btn-registrar" onclick="abrirModalRegistrarMovilidad()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Registrar
+            </button>
           </div>
-          <button type="button" class="btn-accion btn-guardar gastos-btn-registrar" onclick="abrirModalRegistrarMovilidad()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Registrar
-          </button>
         </div>
         <div class="gastos-tarjeta gastos-tarjeta-lectura">
           <div class="gastos-tarjeta-header">
@@ -129,18 +136,12 @@
         </div>
       </div>
       </div>
-
-      <a class="gastos-btn-mis-gastos" href="reportes-movil.html">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Ver Reportes del período
-      </a>
-
       <!-- JORNADAS DE ESTE PERÍODO (antes "Jornadas recientes" — últimos 7
            días sin relación explícita con el período de arriba; mismo
            componente, renombrado para que quede claro que son los días
            DENTRO del período activo, §4.4): toca una para corregir un
            olvido dentro del plazo sin tener que recordar la fecha exacta. -->
-      <p class="gastos-panel-info-titulo gastos-jornadas-titulo" style="margin-top:16px;">Jornadas iniciadas</p>
+      <p class="gastos-panel-info-titulo gastos-jornadas-titulo">Jornadas iniciadas</p>
       <div id="gastosJornadasRecientes"></div>
     </div>
 
@@ -157,13 +158,13 @@
     <div class="modal-overlay movil-modal-overlay" id="modalPrecintosJornadaGastos">
       <div class="modal modal-sm">
         <div class="modal-header">
-          <h2 class="modal-title">Precintos de la Jornada</h2>
+          <h2 class="modal-title" id="tituloPrecintosJornadaGastos">Precintos de la Jornada</h2>
           <button class="modal-close" onclick="cerrarModal('modalPrecintosJornadaGastos')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
         <div class="modal-body">
-          <p class="modal-hint">Si marcaste un precinto como usado o scrap por error, quítalo acá — vuelve a quedar disponible.</p>
+          <p class="modal-hint" id="precintosJornadaGastosNota">Si marcaste un precinto como usado o scrap por error, quítalo acá — vuelve a quedar disponible.</p>
           <div class="movil-tab-toggle" id="precintosJornadaGastosTabs">
             <button type="button" class="movil-tab-toggle-btn activo" id="btnTabPrecintosJornadaUsado" onclick="cambiarTabPrecintosJornadaGastos('usado')">Usado</button>
             <button type="button" class="movil-tab-toggle-btn scrap" id="btnTabPrecintosJornadaScrap" onclick="cambiarTabPrecintosJornadaGastos('scrap')">Scrap</button>
@@ -229,84 +230,24 @@
             <div class="gastos-panel-info-fila"><span>Código</span><strong id="alimentosPanelCodigo">—</strong></div>
           </div>
           <div class="registro-seccion">
-            <div class="registro-seccion-titulo">Comida</div>
+            <div class="registro-seccion-titulo">Fecha</div>
             <div class="movil-form-group">
-              <label class="movil-form-label">Tipo de comida</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg></span>
-                <select class="movil-input" id="alimentosComida" onchange="actualizarComidasDisponibles()">
-                  <option value="Desayuno">Desayuno</option>
-                  <option value="Almuerzo">Almuerzo</option>
-                  <option value="Cena">Cena</option>
-                </select>
-              </div>
-              <span class="movil-input-contador" id="alimentosComidaCorteTexto"></span>
-            </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Fecha</label>
               <div class="movil-input-wrap">
                 <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
                 <input type="date" class="movil-input" id="alimentosFecha" onchange="actualizarComidasDisponibles()">
               </div>
+              <span class="movil-input-contador" id="alimentosComidaCorteTexto"></span>
             </div>
           </div>
 
+          <!-- Una tarjeta por comida (Desayuno, Almuerzo, Cena): se llenan las
+               que correspondan según la hora configurada y todas se guardan
+               juntas — ver renderComidasAlimentos. -->
           <div class="registro-seccion">
-            <div class="registro-seccion-titulo">Detalle del consumo</div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Lugar</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
-                <input type="text" class="movil-input" id="alimentosLugar">
-              </div>
-            </div>
-            <div class="movil-form-group movil-hora-campo">
-              <label class="movil-form-label">Hora</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
-                <input type="text" class="movil-input" id="alimentosHoraTexto" readonly placeholder="--:-- am/pm" onclick="abrirSelectorHora('alimentosHora')">
-                <input type="hidden" id="alimentosHora">
-              </div>
-              <!-- Selector propio de hora (12h con am/pm siempre, sin
-                   depender del picker nativo del navegador/SO — ver
-                   abrirSelectorHora en gastos-movil.js). -->
-              <div class="movil-hora-dropdown" id="alimentosHoraDropdown" style="display:none;">
-                <div class="movil-hora-dropdown-fila">
-                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosHora','h')">
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','h',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
-                    <div class="movil-hspin-valor" id="alimentosHoraSpinH">12</div>
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','h',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
-                  </div>
-                  <span class="movil-hora-dospuntos">:</span>
-                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosHora','m')">
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','m',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
-                    <div class="movil-hspin-valor" id="alimentosHoraSpinM">00</div>
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','m',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
-                  </div>
-                  <span class="movil-hora-dospuntos">:</span>
-                  <div class="movil-hspin movil-hspin-ampm" onwheel="hspinRueda(event,'alimentosHora','ampm')">
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','ampm',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
-                    <div class="movil-hspin-valor" id="alimentosHoraSpinAmpm">AM</div>
-                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosHora','ampm',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
-                  </div>
-                </div>
-                <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('alimentosHora')">Listo</button>
-              </div>
-            </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Costo (S/)</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 6v2m0 8v2"/></svg></span>
-                <input type="number" step="0.01" class="movil-input" id="alimentosCosto" oninput="actualizarTopeAlimentos()">
-              </div>
-              <span class="movil-input-contador" id="alimentosTopeTexto"></span>
-            </div>
+            <div class="registro-seccion-titulo">Comidas del día</div>
+            <div id="alimentosComidasLista"></div>
+            <span class="movil-input-contador" id="alimentosTopeTexto"></span>
           </div>
-
-          <label class="gastos-checkbox-row">
-            <input type="checkbox" id="alimentosSinSustento" onchange="toggleEvidenciaAlimentos()">
-            <span>Gasto sin sustento</span>
-          </label>
 
           <div class="registro-seccion" id="alimentosEvidenciaGroup">
             <div class="registro-seccion-titulo">Evidencia</div>
@@ -320,6 +261,74 @@
 
           <!-- Gasto olvidado (§3): visible solo cuando la jornada de la
                fecha elegida ya cerró — ver actualizarComidasDisponibles. -->
+          <!-- Jornada olvidada: si ese día no se marcó la jornada y todavía está
+               dentro del plazo (Configuración de gastos), se declara acá la hora
+               de inicio y fin — ver actualizarDeclaracionJornada. -->
+          <div class="registro-seccion" id="alimentosDeclaracionGroup" style="display:none;">
+            <div class="registro-seccion-titulo">Declarar jornada de este día</div>
+            <span class="movil-input-contador" id="alimentosDeclaracionAviso"></span>
+            <div class="movil-form-group movil-hora-campo">
+              <label class="movil-form-label">Hora de inicio <span class="req">*</span></label>
+              <div class="movil-input-wrap">
+                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+                <input type="text" class="movil-input" id="alimentosDeclInicioTexto" readonly placeholder="--:-- am/pm" onclick="abrirSelectorHora('alimentosDeclInicio')">
+                <input type="hidden" id="alimentosDeclInicio" onchange="actualizarDeclaracionJornada('alimentos')">
+              </div>
+              <div class="movil-hora-dropdown" id="alimentosDeclInicioDropdown" style="display:none;">
+                <div class="movil-hora-dropdown-fila">
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosDeclInicio','h')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','h',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclInicioSpinH">12</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','h',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosDeclInicio','m')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','m',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclInicioSpinM">00</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','m',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin movil-hspin-ampm" onwheel="hspinRueda(event,'alimentosDeclInicio','ampm')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','ampm',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclInicioSpinAmpm">AM</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclInicio','ampm',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('alimentosDeclInicio')">Listo</button>
+              </div>
+            </div>
+            <div class="movil-form-group movil-hora-campo">
+              <label class="movil-form-label">Hora de fin <span class="req">*</span></label>
+              <div class="movil-input-wrap">
+                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+                <input type="text" class="movil-input" id="alimentosDeclFinTexto" readonly placeholder="--:-- am/pm" onclick="abrirSelectorHora('alimentosDeclFin')">
+                <input type="hidden" id="alimentosDeclFin" onchange="actualizarDeclaracionJornada('alimentos')">
+              </div>
+              <div class="movil-hora-dropdown" id="alimentosDeclFinDropdown" style="display:none;">
+                <div class="movil-hora-dropdown-fila">
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosDeclFin','h')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','h',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclFinSpinH">12</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','h',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'alimentosDeclFin','m')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','m',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclFinSpinM">00</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','m',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin movil-hspin-ampm" onwheel="hspinRueda(event,'alimentosDeclFin','ampm')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','ampm',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="alimentosDeclFinSpinAmpm">AM</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('alimentosDeclFin','ampm',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('alimentosDeclFin')">Listo</button>
+              </div>
+            </div>
+          </div>
+
           <div class="registro-seccion" id="alimentosJustificacionGroup" style="display:none;">
             <div class="registro-seccion-titulo">Justificación (gasto olvidado) <span class="req">*</span></div>
             <textarea class="movil-input" id="alimentosJustificacion" rows="3" style="height:auto;padding:10px 14px;resize:vertical;" placeholder="¿Por qué se registra después de cerrar el día?"></textarea>
@@ -358,71 +367,25 @@
             <div class="gastos-panel-info-fila"><span>Código</span><strong id="movilidadPanelCodigo">—</strong></div>
           </div>
           <div class="registro-seccion">
-            <div class="registro-seccion-titulo">Viaje</div>
+            <div class="registro-seccion-titulo">Fecha</div>
             <div class="movil-form-group">
-              <label class="movil-form-label">Fecha</label>
               <div class="movil-input-wrap">
                 <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
                 <input type="date" class="movil-input" id="movilidadFecha" onchange="actualizarJustificacionMovilidad()">
               </div>
             </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Empresa</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2v-4l-3-5H6L3 13v4h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17h8"/></svg></span>
-                <input type="text" class="movil-input" id="movilidadEmpresa">
-              </div>
-            </div>
           </div>
 
+          <!-- Se pueden registrar varios viajes en un mismo registro — ver
+               renderViajesMovilidad / agregarViajeMovilidad. -->
           <div class="registro-seccion">
-            <div class="registro-seccion-titulo">Ruta</div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Distrito de partida</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
-                <input type="text" class="movil-input" id="movilidadDistritoPartida">
-              </div>
-            </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Distrito de destino</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
-                <input type="text" class="movil-input" id="movilidadDistritoDestino">
-              </div>
-            </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Motivo</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-                <input type="text" class="movil-input" id="movilidadMotivo">
-              </div>
-            </div>
+            <div id="movilidadViajesLista"></div>
+            <button type="button" class="btn-accion btn-cancelar gastos-btn-evidencia" id="btnAgregarViaje" onclick="agregarViajeMovilidad()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Agregar otro viaje
+            </button>
+            <span class="movil-input-contador" id="movilidadTopeTexto"></span>
           </div>
-
-          <div class="registro-seccion">
-            <div class="registro-seccion-titulo">Costo</div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Horas</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
-                <input type="text" class="movil-input" id="movilidadHoras" placeholder="Ej. 2 horas">
-              </div>
-            </div>
-            <div class="movil-form-group">
-              <label class="movil-form-label">Importe (S/)</label>
-              <div class="movil-input-wrap">
-                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 6v2m0 8v2"/></svg></span>
-                <input type="number" step="0.01" class="movil-input" id="movilidadImporte" oninput="actualizarTopeMovilidad()">
-              </div>
-              <span class="movil-input-contador" id="movilidadTopeTexto"></span>
-            </div>
-          </div>
-
-          <label class="gastos-checkbox-row">
-            <input type="checkbox" id="movilidadSinSustento" onchange="toggleEvidenciaMovilidad()">
-            <span>Gasto sin sustento</span>
-          </label>
 
           <div class="registro-seccion" id="movilidadEvidenciaGroup">
             <div class="registro-seccion-titulo">Evidencia</div>
@@ -436,6 +399,74 @@
 
           <!-- Gasto olvidado (§3): visible solo cuando la jornada de la
                fecha elegida ya cerró. -->
+          <!-- Jornada olvidada: si ese día no se marcó la jornada y todavía está
+               dentro del plazo (Configuración de gastos), se declara acá la hora
+               de inicio y fin — ver actualizarDeclaracionJornada. -->
+          <div class="registro-seccion" id="movilidadDeclaracionGroup" style="display:none;">
+            <div class="registro-seccion-titulo">Declarar jornada de este día</div>
+            <span class="movil-input-contador" id="movilidadDeclaracionAviso"></span>
+            <div class="movil-form-group movil-hora-campo">
+              <label class="movil-form-label">Hora de inicio <span class="req">*</span></label>
+              <div class="movil-input-wrap">
+                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+                <input type="text" class="movil-input" id="movilidadDeclInicioTexto" readonly placeholder="--:-- am/pm" onclick="abrirSelectorHora('movilidadDeclInicio')">
+                <input type="hidden" id="movilidadDeclInicio" onchange="actualizarDeclaracionJornada('movilidad')">
+              </div>
+              <div class="movil-hora-dropdown" id="movilidadDeclInicioDropdown" style="display:none;">
+                <div class="movil-hora-dropdown-fila">
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'movilidadDeclInicio','h')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','h',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclInicioSpinH">12</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','h',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'movilidadDeclInicio','m')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','m',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclInicioSpinM">00</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','m',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin movil-hspin-ampm" onwheel="hspinRueda(event,'movilidadDeclInicio','ampm')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','ampm',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclInicioSpinAmpm">AM</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclInicio','ampm',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('movilidadDeclInicio')">Listo</button>
+              </div>
+            </div>
+            <div class="movil-form-group movil-hora-campo">
+              <label class="movil-form-label">Hora de fin <span class="req">*</span></label>
+              <div class="movil-input-wrap">
+                <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+                <input type="text" class="movil-input" id="movilidadDeclFinTexto" readonly placeholder="--:-- am/pm" onclick="abrirSelectorHora('movilidadDeclFin')">
+                <input type="hidden" id="movilidadDeclFin" onchange="actualizarDeclaracionJornada('movilidad')">
+              </div>
+              <div class="movil-hora-dropdown" id="movilidadDeclFinDropdown" style="display:none;">
+                <div class="movil-hora-dropdown-fila">
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'movilidadDeclFin','h')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','h',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclFinSpinH">12</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','h',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin" onwheel="hspinRueda(event,'movilidadDeclFin','m')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','m',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclFinSpinM">00</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','m',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                  <span class="movil-hora-dospuntos">:</span>
+                  <div class="movil-hspin movil-hspin-ampm" onwheel="hspinRueda(event,'movilidadDeclFin','ampm')">
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','ampm',1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"/></svg></button>
+                    <div class="movil-hspin-valor" id="movilidadDeclFinSpinAmpm">AM</div>
+                    <button type="button" class="movil-hspin-btn" onclick="hspinAjustar('movilidadDeclFin','ampm',-1)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></button>
+                  </div>
+                </div>
+                <button type="button" class="btn-accion btn-guardar movil-hora-listo" onclick="confirmarSelectorHora('movilidadDeclFin')">Listo</button>
+              </div>
+            </div>
+          </div>
+
           <div class="registro-seccion" id="movilidadJustificacionGroup" style="display:none;">
             <div class="registro-seccion-titulo">Justificación (gasto olvidado) <span class="req">*</span></div>
             <textarea class="movil-input" id="movilidadJustificacion" rows="3" style="height:auto;padding:10px 14px;resize:vertical;" placeholder="¿Por qué se registra después de cerrar el día?"></textarea>
@@ -466,6 +497,7 @@
 <script src="JS/permisos.js"></script>
 <script src="JS/main.js"></script>
 <script src="JS/nav-movil.js"></script>
+<script src="JS/notificaciones-movil.js"></script>
 <script src="JS/gastos-movil.js"></script>
 <script>renderNavInferiorMovil('gastos');</script>
 </body>

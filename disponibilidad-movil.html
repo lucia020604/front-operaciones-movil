@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disponibilidad del Personal – App Móvil</title>
+<link rel="stylesheet" href="CSS/main.css">
+<link rel="stylesheet" href="CSS/movil.css">
+</head>
+<body>
+
+<div class="movil-fondo">
+  <div class="telefono">
+    <div class="movil-header">
+      <div class="telefono-statusbar telefono-statusbar--claro">
+        <span id="horaStatusBar">--:--</span>
+        <span class="status-iconos">
+          <svg width="15" height="11" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 5c5-5 13-5 18 0M4 8c3.4-3.2 8.6-3.2 12 0M7.2 11c1.7-1.5 3.9-1.5 5.6 0"/><circle cx="10" cy="12.5" r="1"/></svg>
+          <svg width="20" height="11" viewBox="0 0 25 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="20" height="11" rx="2.5"/><rect x="3" y="3" width="14" height="7" rx="1" fill="currentColor" stroke="none"/><path d="M23 4.5v4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="movil-header-fila">
+        <div class="movil-header-titulos">
+          <div class="movil-header-titulo">Disponibilidad del Personal</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="movil-contenido">
+
+      <!-- MES -->
+      <div class="gastos-periodo-card disp-mes-card">
+        <div class="gastos-periodo-card-top gastos-periodo-nav">
+          <button type="button" class="gastos-periodo-flecha" onclick="dispCambiarMes(-1)" aria-label="Mes anterior">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <div class="gastos-periodo-card-centro">
+            <span class="gastos-periodo-card-nombre" id="dispMesTexto">—</span>
+            <span class="gastos-periodo-card-rango">Días del mes por estado</span>
+          </div>
+          <button type="button" class="gastos-periodo-flecha" onclick="dispCambiarMes(1)" aria-label="Mes siguiente">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+        <div class="disp-resumen" id="dispResumen"></div>
+      </div>
+
+      <!-- FILTROS (mismos que la web: búsqueda y rol; el mes se cambia con las
+           flechas de arriba) + estado de hoy y orden, pensados para el móvil -->
+      <div class="disp-filtros">
+        <div class="movil-input-wrap">
+          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <input type="search" class="movil-input" id="dispBuscar" placeholder="Buscar operario…" oninput="renderDisponibilidadMovil()">
+        </div>
+        <div class="disp-filtros-fila">
+          <label class="disp-select">
+            <span>Rol</span>
+            <select class="movil-input" id="dispRolFiltro" onchange="renderDisponibilidadMovil()" aria-label="Rol"></select>
+          </label>
+          <label class="disp-select">
+            <span>Ordenar por</span>
+            <select class="movil-input" id="dispOrden" onchange="renderDisponibilidadMovil()" aria-label="Ordenar por">
+              <option value="nombre">Nombre (A–Z)</option>
+              <option value="disponibles">Más disponibles</option>
+              <option value="programados">Más programados</option>
+              <option value="ausencias">Más ausencias</option>
+            </select>
+          </label>
+        </div>
+        <div class="disp-chips" id="dispChipsEstado" role="group" aria-label="Estado de hoy"></div>
+        <div class="disp-filtros-pie">
+          <span class="reportes-contador" id="dispContador"></span>
+          <button type="button" class="disp-limpiar" id="dispLimpiar" onclick="dispLimpiarFiltros()" style="display:none;">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div id="dispLista"></div>
+    </div>
+
+    <div class="movil-bottomnav" id="movilBottomnav"></div>
+
+    <!-- MODAL: CALENDARIO DE UN OPERARIO -->
+    <div class="modal-overlay movil-modal-overlay" id="modalCalendarioDisp">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title" id="dispCalNombre">Calendario</h2>
+            <span class="detalle-reg-sub">Calendario de disponibilidad</span>
+          </div>
+          <button class="modal-close" onclick="cerrarModal('modalCalendarioDisp')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="disp-cal-nav">
+            <button type="button" class="gastos-periodo-flecha" onclick="dispCalCambiarMes(-1)" aria-label="Mes anterior">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <strong id="dispCalMes">—</strong>
+            <button type="button" class="gastos-periodo-flecha" onclick="dispCalCambiarMes(1)" aria-label="Mes siguiente">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div class="disp-cal-grid" id="dispCalGrid"></div>
+          <div class="disp-leyenda" id="dispCalLeyenda"></div>
+          <div class="disp-cal-detalle" id="dispCalDetalle"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-cancelar" style="width:100%;justify-content:center;" onclick="cerrarModal('modalCalendarioDisp')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="JS/data-usuarios.js"></script>
+<script src="JS/data-tablas-generales.js"></script>
+<script src="JS/data-movil.js"></script>
+<script src="JS/data-disponibilidad.js"></script>
+<script src="JS/main.js"></script>
+<script src="JS/nav-movil.js"></script>
+<script src="JS/disponibilidad-movil.js"></script>
+<script>
+  renderNavInferiorMovil('disponibilidad');
+  inicializarDisponibilidadMovil();
+</script>
+</body>
+</html>

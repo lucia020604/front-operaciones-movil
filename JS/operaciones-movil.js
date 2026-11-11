@@ -192,48 +192,9 @@ function irAGastoOlvidadoDesdeNotificacion(fechaISO) {
 // Notification API real (mejor esfuerzo, sin pedir permiso de entrada — si
 // el APK/navegador no lo permite o no está otorgado, el banner de arriba
 // sigue siendo el aviso real) — una por día agrupando sus comidas.
-// Simulación visual de push (ítem 2, Sprint 4): la Notification API real
-// (notificarOlvidosNavegador) casi nunca se ve porque depende de un permiso
-// que el navegador/APK no otorga en la demo — este botón SIEMPRE muestra,
-// dentro de la propia pantalla, cómo se vería ese aviso llegando al
-// celular del operador en tiempo real. Usa el primer aviso real pendiente
-// (olvido de comida o reporte no generado) si hay uno; si no hay ninguno
-// pendiente ahora mismo, muestra un ejemplo para que el botón nunca quede
-// sin mostrar nada.
-let pushSimTimeoutId = null;
-
-function mostrarSimulacionPush() {
-  const banner = document.getElementById('pushSimBanner');
-  const sesion = obtenerUsuarioActual();
-  if (!banner || !sesion) return;
-
-  const olvidos = (typeof obtenerComidasOlvidadasOperador === 'function') ? obtenerComidasOlvidadasOperador(sesion.usuario) : [];
-  const noGenerados = (typeof obtenerReportesNoGeneradosOperador === 'function') ? obtenerReportesNoGeneradosOperador(sesion.usuario) : [];
-
-  let titulo, cuerpo;
-  if (olvidos.length) {
-    titulo = 'Gasto olvidado';
-    cuerpo = `No se agregó ${olvidos[0].comidas.join(', ')} en el reporte del día ${olvidos[0].fecha}`;
-  } else if (noGenerados.length) {
-    titulo = 'Reporte pendiente';
-    cuerpo = noGenerados[0].mensaje;
-  } else {
-    titulo = 'Reporte pendiente';
-    cuerpo = 'No se generó reporte de Movilidad del día de hoy';
-  }
-
-  document.getElementById('pushSimTitulo').textContent = titulo;
-  document.getElementById('pushSimCuerpo').textContent = cuerpo;
-  document.getElementById('pushSimHora').textContent = 'ahora';
-
-  banner.classList.remove('push-sim-banner--visible');
-  void banner.offsetWidth; // reinicia la animación si ya estaba visible
-  banner.classList.add('push-sim-banner--visible');
-
-  clearTimeout(pushSimTimeoutId);
-  pushSimTimeoutId = setTimeout(() => banner.classList.remove('push-sim-banner--visible'), 4500);
-}
-
+// El banner de push simulado ya no lo dispara un botón: lo muestra
+// notificaciones-movil.js (notifMovilPush) cuando llega una notificación
+// nueva (operación asignada o reporte olvidado).
 function notificarOlvidosNavegador(dias) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   dias.forEach(d => {
@@ -548,7 +509,6 @@ function renderOperacionesAsignadas() {
       <div class="op-card-header">
         <div class="op-card-header-top">
           <span class="op-codigo-badge">${op.codigo}</span>
-          <span class="op-card-terminal">${op.terminal}</span>
         </div>
         <div class="op-card-fechas" aria-label="Fechas de la operación">
           <span><span class="op-card-fecha-label">Inicio</span><strong class="op-card-fecha-valor">${obtenerFechaOperacion(op, 'inicia')}</strong></span>
@@ -560,7 +520,10 @@ function renderOperacionesAsignadas() {
         <div class="op-dato"><span class="lbl">N° Per</span><span class="val">${op.per}</span></div>
         <div class="op-dato"><span class="lbl">N° Viaje</span><span class="val">${op.nroViaje}</span></div>
         <div class="op-dato"><span class="lbl">Operación</span><span class="val">${op.operacion}</span></div>
-        <div class="op-dato" style="grid-column:1 / -1;"><span class="lbl">Personal Asignado</span><span class="val">${op.personalAsignado}</span></div>
+        <div class="op-dato"><span class="lbl">Puerto</span><span class="val">${op.puerto || '—'}</span></div>
+        <div class="op-dato"><span class="lbl">Terminal</span><span class="val">${op.terminal || '—'}</span></div>
+        <div class="op-dato"><span class="lbl">Muelle</span><span class="val">${op.muelle || '—'}</span></div>
+        <div class="op-dato"><span class="lbl">Personal Asignado</span><span class="val">${op.personalAsignado}</span></div>
       </div>
 
       <div style="margin-top:10px;">

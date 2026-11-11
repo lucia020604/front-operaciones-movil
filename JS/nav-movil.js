@@ -30,15 +30,38 @@ const ITEMS_NAV_MOVIL = [
     icono: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>'
   },
   {
+    // Solo para usuarios Administrativos (ver esUsuarioAdministrativoMovil,
+    // data-disponibilidad.js): el resto de usuarios no ve este ítem.
+    id: 'disponibilidad', href: 'disponibilidad-movil.html', etiqueta: 'Personal', soloAdministrativo: true,
+    icono: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+  },
+  {
     id: 'perfil', href: 'perfil-movil.html', etiqueta: 'Perfil',
     icono: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'
   }
 ];
 
+// "Disponibilidad del Personal" es solo para usuarios Administrativos: al
+// menos uno de sus roles es de categoría "Administrativo" (Configuración >
+// Roles). Los roles Operativos (Inspector, Técnico, Supervisor…) no lo ven.
+function esUsuarioAdministrativoMovil() {
+  if (typeof obtenerUsuarioActual !== 'function') return false;
+  const sesion = obtenerUsuarioActual();
+  if (!sesion) return false;
+  const usuario = obtenerUsuarioPorNombre(sesion.usuario);
+  if (!usuario) return false;
+  return obtenerIdsRolesUsuario(usuario).some(id => {
+    const rol = obtenerRolPorId(id);
+    return rol && (rol.categorias || []).includes('Administrativo');
+  });
+}
+
 function renderNavInferiorMovil(activo) {
   const cont = document.getElementById('movilBottomnav');
   if (!cont) return;
-  cont.innerHTML = ITEMS_NAV_MOVIL.map(it => `
+  // "Personal" (Disponibilidad del Personal) solo lo ven los Administrativos.
+  const esAdmin = typeof esUsuarioAdministrativoMovil === 'function' ? esUsuarioAdministrativoMovil() : false;
+  cont.innerHTML = ITEMS_NAV_MOVIL.filter(it => !it.soloAdministrativo || esAdmin).map(it => `
     <a class="movil-nav-item${it.id === activo ? ' activo' : ''}" href="${it.href}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${it.icono}</svg>
       ${it.etiqueta}

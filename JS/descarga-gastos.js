@@ -498,6 +498,45 @@ function abrirVentanaReporteGastos(d, { imprimir = false, modoExcel = false } = 
 }
 
 /* =================================================
+   DESCARGA POR JORNADA (móvil, pantalla Reportes): un solo PDF con todo lo
+   registrado ese día — Alimentos, Movilidad y Días a Bordo, cada uno con la
+   misma planilla que ya arma la web (construirHTMLReporteGastos), una hoja
+   por tipo.
+================================================= */
+function tieneFilasGastoEnFecha(usuario, tipo, fechaISO) {
+  return GASTOS_OPERATIVOS_DEMO.some(g => {
+    if (g.tipo !== tipo) return false;
+    const detalle = obtenerDetalleGastoPorTipo(g.tipo, g.id);
+    return detalle && detalle.firmaTrabajador === usuario && detalle.grilla.some(f => fechaDDMMYYYYaISO(f.fecha) === fechaISO);
+  });
+}
+
+// { html, tipos } con una hoja por tipo que tenga filas ese día, o null.
+function construirHTMLReporteJornadaGastos(usuario, fechaISO) {
+  const htmls = [], tipos = [];
+  ['Alimentos', 'Movilidad', 'Días a Bordo'].forEach(tipo => {
+    if (!tieneFilasGastoEnFecha(usuario, tipo, fechaISO)) return;
+    const d = prepararDescargaGastos({ usuario, tipo, desde: fechaISO, hasta: fechaISO });
+    if (!d) return;
+    htmls.push(construirHTMLReporteGastos(d, false));
+    tipos.push(tipo);
+  });
+  if (!htmls.length) { mostrarToast('Esta jornada no tiene registros para descargar.'); return null; }
+  const hoja = h => h.slice(h.indexOf('<div class="hoja">'), h.lastIndexOf('</body>'));
+  const resto = htmls.slice(1).map(h => `<div style="page-break-before:always;"></div>${hoja(h)}`).join('');
+  return { html: htmls[0].replace('</body></html>', resto + '</body></html>'), tipos };
+}
+
+function abrirVentanaHTMLGastos(html, { imprimir = false } = {}) {
+  const win = window.open('', '_blank', 'width=1000,height=700');
+  if (!win) { mostrarToast('Permite las ventanas emergentes para ver el PDF.'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  if (imprimir) win.print();
+}
+
+/* =================================================
    ÚLTIMA DESCARGA — igual que "Última Descarga" de Precintos: {fecha, por,
    desde, hasta} por usuario+tipo, persistido. La usan tanto la grilla web
    (columna "Última Descarga") como, si hiciera falta, el móvil.
