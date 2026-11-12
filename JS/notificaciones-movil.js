@@ -9,9 +9,9 @@
 //                           Movilidad sin registrar, dentro del plazo máximo
 //                           de Configuración de gastos (se actualiza en el
 //                           lugar y desaparece cuando ya no queda nada).
-// La campana vive en el encabezado de cada pantalla principal y lleva a la
-// pantalla completa "Notificaciones" (notificaciones-movil.html) — no es un
-// modal. Al tocar un aviso se va directo a donde hay que actuar.
+// La campana vive en el encabezado de cada pantalla principal y abre un
+// MODAL con las notificaciones (pestañas Todas / No leídas). Al tocar un
+// aviso se va directo a donde hay que actuar (sin segundo modal).
 // =================================================
 const NOTIF_MOVIL_MAX = 50;
 let NOTIF_MOVIL_USUARIO = null;
@@ -162,6 +162,30 @@ function notifMovilGenerar() {
     if (cambio && !primeroNuevo) primeroNuevo = { app: 'Gastos Operativos', titulo: 'Reporte pendiente', cuerpo: `${dias.length === 1 ? '1 día' : dias.length + ' días'} sin completar. Toca para llenarlo.` };
   }
 
+  // 3) Documentos vencidos / por vencer (contrato, cursos, certificaciones,
+  // Lemon Card) — dos avisos agrupados, como en la web: uno rojo para los
+  // vencidos y uno ámbar para los que están por vencer.
+  const alertasDocs = typeof obtenerAlertasDocumentosInspector === 'function' ? obtenerAlertasDocumentosInspector(usuario) : [];
+  const listaTexto = docs => {
+    const partes = docs.slice(0, 2).map(d => `${d.nombre} (${d.texto})`);
+    if (docs.length > 2) partes.push(`y ${docs.length - 2} más`);
+    return partes.join(' · ');
+  };
+  [
+    { id: 'documentos-vencidos', estado: 'Vencido', prioridad: 'vencido', singular: 'documento vencido', plural: 'documentos vencidos', cuerpo: 'Actualízalos para seguir asignado a operaciones.' },
+    { id: 'documentos-por-vencer', estado: 'Por Vencer', prioridad: 'por_vencer', singular: 'documento por vencer', plural: 'documentos por vencer', cuerpo: 'Renuévalos antes de que venzan.' }
+  ].forEach(cfg => {
+    const docs = alertasDocs.filter(d => d.estado === cfg.estado);
+    if (!docs.length) { notifMovilEliminar(cfg.id); return; }
+    const cambio = notifMovilUpsertar({
+      id: cfg.id, tipo: 'documento', prioridad: cfg.prioridad,
+      titulo: `${docs.length} ${docs.length === 1 ? cfg.singular : cfg.plural}`,
+      mensaje: `${listaTexto(docs)}. ${cfg.cuerpo}`,
+      url: '', items: null
+    });
+    if (cambio && !primeroNuevo) primeroNuevo = { app: 'Documentos', titulo: `${docs.length} ${docs.length === 1 ? cfg.singular : cfg.plural}`, cuerpo: listaTexto(docs) };
+  });
+
   notifMovilRenderBadge();
   if (primeroNuevo) notifMovilPush(primeroNuevo);
   notifMovilRender();
@@ -233,7 +257,10 @@ function notifMovilRender() {
 }
 
 function abrirNotificacionesMovil() {
-  window.location.href = 'notificaciones-movil.html';
+  notifMovilFiltro = 'todas';
+  notifMovilGenerar();
+  notifMovilRender();
+  abrirModal('modalNotifMovil');
 }
 
 // Click en una notificación: la marca como leída y lleva directo a donde se
@@ -246,42 +273,56 @@ function notifMovilAbrir(id) {
   else notifMovilRender();
 }
 
-// Flecha del encabezado de la pantalla: vuelve a la pantalla anterior.
-function notifMovilAtras() {
-  if (document.referrer && history.length > 1) history.back();
-  else window.location.href = 'operaciones-movil.html';
-}
-
 function notifMovilInicializar() {
   const sesion = typeof obtenerUsuarioActual === 'function' ? obtenerUsuarioActual() : null;
-  if (!sesion) return;
+  const telefono = document.querySelector('.telefono');
+  const fila = document.querySelector('.movil-header-fila');
+  if (!sesion || !telefono || !fila) return;
   NOTIF_MOVIL_USUARIO = sesion.usuario;
 
-  const esPantallaNotificaciones = !!document.getElementById('notifMovilBody');
-  const fila = document.querySelector('.movil-header-fila');
-
   // Campana del encabezado (en Operaciones ya existía la de la simulación
-  // de push: se reutiliza y pasa a abrir la pantalla de notificaciones).
-  if (!esPantallaNotificaciones && fila) {
-    let btn = fila.querySelector('.movil-header-campana-btn');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'movil-header-campana-btn';
-      fila.appendChild(btn);
-    }
-    btn.removeAttribute('onclick');
-    btn.onclick = abrirNotificacionesMovil;
-    btn.title = 'Notificaciones';
-    btn.setAttribute('aria-label', 'Notificaciones');
-    btn.classList.add('movil-campana-notif');
-    btn.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-      <span class="movil-notif-badge" id="movilNotifBadge" style="display:none;"></span>`;
+  // de push: se reutiliza y pasa a abrir el modal de notificaciones).
+  let btn = fila.querySelector('.movil-header-campana-btn');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'movil-header-campana-btn';
+    fila.appendChild(btn);
   }
+  btn.removeAttribute('onclick');
+  btn.onclick = abrirNotificacionesMovil;
+  btn.title = 'Notificaciones';
+  btn.setAttribute('aria-label', 'Notificaciones');
+  btn.classList.add('movil-campana-notif');
+  btn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    <span class="movil-notif-badge" id="movilNotifBadge" style="display:none;"></span>`;
+
+  // Modal de notificaciones, dentro del teléfono.
+  const panel = document.createElement('div');
+  panel.className = 'modal-overlay movil-modal-overlay';
+  panel.id = 'modalNotifMovil';
+  panel.innerHTML = `
+    <div class="modal modal-sm notif-pagina movil-notif-modal">
+      <div class="notif-panel-header">
+        <div class="notif-panel-titulo">
+          <span>Notificaciones</span>
+          <span class="notif-panel-contador" id="notifMovilContador"></span>
+        </div>
+        <button type="button" class="notif-panel-cerrar" onclick="cerrarModal('modalNotifMovil')" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="notif-panel-tabs">
+        <button type="button" class="notif-panel-tab activa" data-filtro="todas" onclick="notifMovilCambiarFiltro('todas')">Todas</button>
+        <button type="button" class="notif-panel-tab" data-filtro="no_leidas" onclick="notifMovilCambiarFiltro('no_leidas')">No leídas</button>
+        <button type="button" class="notif-panel-marcar" id="notifMovilMarcarTodas" onclick="notifMovilMarcarTodas()">Marcar todas como leídas</button>
+      </div>
+      <div class="notif-panel-body" id="notifMovilBody"></div>
+    </div>`;
+  telefono.appendChild(panel);
 
   notifMovilGenerar();
-  if (esPantallaNotificaciones) notifMovilRender();
   setInterval(notifMovilGenerar, 60000);
   window.addEventListener('storage', e => { if (e.key === notifMovilClave()) { notifMovilRenderBadge(); notifMovilRender(); } });
 }

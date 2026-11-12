@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Cabotaje – App Móvil</title>
+<link rel="stylesheet" href="CSS/main.css">
+<link rel="stylesheet" href="CSS/movil.css">
+</head>
+<body>
+
+<div class="movil-fondo">
+  <div class="telefono">
+    <div class="movil-header">
+      <div class="telefono-statusbar telefono-statusbar--claro">
+        <span id="horaStatusBar">--:--</span>
+        <span class="status-iconos">
+          <svg width="15" height="11" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 5c5-5 13-5 18 0M4 8c3.4-3.2 8.6-3.2 12 0M7.2 11c1.7-1.5 3.9-1.5 5.6 0"/><circle cx="10" cy="12.5" r="1"/></svg>
+          <svg width="20" height="11" viewBox="0 0 25 13" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="1" width="20" height="11" rx="2.5"/><rect x="3" y="3" width="14" height="7" rx="1" fill="currentColor" stroke="none"/><path d="M23 4.5v4" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="movil-header-fila">
+        <div class="movil-header-titulos">
+          <div class="movil-header-titulo">Dashboard de Cabotaje</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="movil-contenido">
+
+      <!-- FILTROS: búsqueda, año y mes -->
+      <div class="cab-filtros">
+        <div class="movil-input-wrap">
+          <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <input type="search" class="movil-input" id="cabBuscar" placeholder="Cliente, buque, puerto, N° operación…" oninput="cabBuscarConRetardo()">
+        </div>
+        <div class="cab-filtros-fila">
+          <label class="disp-select"><span>Año</span><select class="movil-input" id="cabAnio" onchange="cabAplicar()"></select></label>
+          <label class="disp-select"><span>Mes</span><select class="movil-input" id="cabMes" onchange="cabAplicar()"></select></label>
+        </div>
+        <button type="button" class="cab-limpiar" onclick="cabLimpiarFiltros()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Limpiar filtros
+        </button>
+      </div>
+
+      <!-- RESUMEN -->
+      <div class="cab-kpis" id="cabKpis"></div>
+
+      <!-- TENDENCIA DE VIAJES -->
+      <div class="cab-card">
+        <div class="cab-card-cab"><strong>Tendencia de viajes</strong><span id="cabLineaSub"></span></div>
+        <div id="cabLinea"></div>
+      </div>
+
+      <!-- VIAJES POR PUERTO -->
+      <div class="cab-card">
+        <div class="cab-card-cab">
+          <div><strong>Viajes por puerto</strong><span id="cabPuertoSub"></span></div>
+          <button type="button" class="cab-link" onclick="cabAbrirPuertos()">Ver todos</button>
+        </div>
+        <div class="cab-leyenda" id="cabPuertoLeyenda">
+          <button type="button" class="cab-leyenda-btn" data-modo="origen" onclick="cabElegirModoPuerto('origen')"><i style="background:#00B4D8"></i>Origen</button>
+          <button type="button" class="cab-leyenda-btn" data-modo="destino" onclick="cabElegirModoPuerto('destino')"><i style="background:#1E3A5F"></i>Destino</button>
+        </div>
+        <div id="cabPuertos"></div>
+      </div>
+
+      <!-- TOP 5 CLIENTES -->
+      <div class="cab-card">
+        <div class="cab-card-cab"><strong>Top 5 clientes</strong><span id="cabClientesSub"></span></div>
+        <div id="cabClientes"></div>
+      </div>
+
+      <!-- LISTADO DE OPERACIONES -->
+      <p class="gastos-panel-info-titulo" style="margin-top:6px;">Operaciones <span class="reportes-contador" id="cabContador"></span></p>
+      <div id="cabLista"></div>
+      <button type="button" class="btn-accion btn-cancelar cab-ver-mas" id="cabVerMas" onclick="cabVerMas()" style="display:none;"></button>
+    </div>
+
+    <div class="movil-bottomnav" id="movilBottomnav"></div>
+
+    <!-- MODAL: TODOS LOS PUERTOS -->
+    <div class="modal-overlay movil-modal-overlay" id="modalCabPuertos">
+      <div class="modal modal-sm">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title">Viajes por puerto</h2>
+            <span class="detalle-reg-sub" id="cabPuertosModalSub"></span>
+          </div>
+          <button class="modal-close" onclick="cerrarModal('modalCabPuertos')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="cab-pm-resumen" id="cabPuertosResumen"></div>
+          <div id="cabPuertosLista"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-accion btn-cancelar" style="width:100%;justify-content:center;" onclick="cerrarModal('modalCabPuertos')">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="JS/data-usuarios.js"></script>
+<script src="JS/data-tablas-generales.js"></script>
+<script src="JS/data-movil.js"></script>
+<script src="JS/data-cabotaje.js"></script>
+<script src="JS/main.js"></script>
+<script src="JS/nav-movil.js"></script>
+<script src="JS/cabotaje-movil.js"></script>
+<script>
+  renderNavInferiorMovil('cabotaje');
+  inicializarCabotajeMovil();
+</script>
+</body>
+</html>

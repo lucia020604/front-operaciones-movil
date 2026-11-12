@@ -608,7 +608,6 @@ function irAJornadaDesdeGastos(fechaISO, tipo) {
    ALIMENTOS — valida tope por comida (desayuno/almuerzo/cena) y por día,
    de LIMITES_GASTOS_DEMO.alimentos.
 ================================================= */
-let alimentosEvidenciaTemp = [];
 let alimentosIndiceEditando = null; // índice en la grilla si se está editando, null si es nuevo
 
 // Misma corrección que obtenerFechaHoyISO (data-movil.js): fecha de HOY en
@@ -779,13 +778,12 @@ function abrirModalRegistrarAlimentos(fechaISO) {
   if (!jornadaPermiteRegistrar(fechaInicial)) return;
   alimentosIndiceEditando = null;
   alimentosComidaEditando = null;
-  alimentosEvidenciaTemp = [];
+  evidenciaTarjetas = {};
   tarjetasGastoContraidas.clear();
   document.getElementById('tituloRegistrarAlimentos').textContent = 'Registrar Alimentos';
   document.getElementById('alimentosFecha').value = fechaInicial;
   document.getElementById('alimentosFecha').max = fechaMaxPeriodo();
   document.getElementById('alimentosFecha').min = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
-  renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
   document.getElementById('alimentosJustificacion').value = '';
   limpiarDeclaracionJornada('alimentos');
   actualizarComidasDisponibles();
@@ -829,13 +827,20 @@ function srcEvidencia(clave) {
 }
 
 // Miniaturas en cuadrícula (sin cortes de texto); tocar una la abre grande.
-function htmlEvidenciaGrid(lista, vacio) {
+// Con "claveTarjeta" (formularios de registro) cada foto lleva una X para
+// quitarla; sin ella (detalle de reportes) es solo de consulta.
+function htmlEvidenciaGrid(lista, vacio, claveTarjeta) {
   if (!lista || !lista.length) return `<span class="gastos-evidencia-vacia">${vacio}</span>`;
-  return `<div class="evidencia-grid">${lista.map(c => `
-    <button type="button" class="evidencia-thumb" data-ev="${escAttrGasto(c)}" onclick="verImagenEvidencia(this)">
-      <img src="${srcEvidencia(c)}" alt="${escAttrGasto(etiquetaEvidencia(c))}">
-      <span>${escAttrGasto(etiquetaEvidencia(c))}</span>
-    </button>`).join('')}</div>`;
+  return `<div class="evidencia-grid">${lista.map((c, i) => `
+    <div class="evidencia-item">
+      <button type="button" class="evidencia-thumb" data-ev="${escAttrGasto(c)}" onclick="verImagenEvidencia(this)">
+        <img src="${srcEvidencia(c)}" alt="${escAttrGasto(etiquetaEvidencia(c))}">
+        <span>${escAttrGasto(etiquetaEvidencia(c))}</span>
+      </button>
+      ${claveTarjeta ? `<button type="button" class="evidencia-quitar" title="Quitar evidencia" aria-label="Quitar evidencia" onclick="quitarEvidenciaTarjeta('${claveTarjeta}', ${i})">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>` : ''}
+    </div>`).join('')}</div>`;
 }
 
 // La imagen se amplía DENTRO del mismo modal (con botón "Volver"), no en un
@@ -857,8 +862,22 @@ function verImagenEvidencia(btn) {
       </button>
       <span class="evidencia-visor-titulo">${escAttrGasto(etiquetaEvidencia(clave))}</span>
     </div>
-    <div class="evidencia-visor-cuerpo"><img src="${srcEvidencia(clave)}" alt="${escAttrGasto(etiquetaEvidencia(clave))}"></div>`;
+    <div class="evidencia-visor-cuerpo"><img src="${srcEvidencia(clave)}" alt="${escAttrGasto(etiquetaEvidencia(clave))}"></div>
+    <div class="evidencia-visor-pie">
+      <button type="button" class="btn-accion btn-cancelar" onclick="cancelarVisorEvidencia(this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        Cancelar
+      </button>
+    </div>`;
   modal.classList.add('con-visor');
+}
+
+// "Cancelar": cierra la foto y también el modal completo.
+function cancelarVisorEvidencia(btn) {
+  const modal = btn.closest('.modal');
+  const overlay = btn.closest('.modal-overlay');
+  if (modal) modal.classList.remove('con-visor');
+  if (overlay && overlay.id) cerrarModal(overlay.id);
 }
 
 function cerrarVisorEvidencia(btn) {
@@ -896,20 +915,42 @@ function guardarEvidenciaImagen(file, numero, callback) {
   reader.readAsDataURL(file);
 }
 
-function agregarEvidenciaAlimentos(input) {
+// Evidencia POR TARJETA: cada comida (Desayuno/Almuerzo/Cena) y cada viaje
+// de Movilidad lleva sus propias fotos. Clave: "alim_<Comida>" / "mov_<id>".
+let evidenciaTarjetas = {};
+
+function htmlEvidenciaTarjeta(clave) {
+  const idInput = `evInput_${clave}`;
+  return `<div class="gastos-ev-tarjeta">
+    <span class="gastos-ev-titulo">Evidencia</span>
+    <input type="file" accept="image/*" capture="environment" id="${idInput}" hidden onchange="agregarEvidenciaTarjeta('${clave}', this)">
+    <button type="button" class="btn-accion btn-cancelar gastos-btn-evidencia" onclick="document.getElementById('${idInput}').click()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Añadir evidencia
+    </button>
+    <div class="gastos-evidencia-chips" id="evChips_${clave}">${htmlEvidenciaGrid(evidenciaTarjetas[clave] || [], 'Sin fotos adjuntadas.', clave)}</div>
+  </div>`;
+}
+
+function agregarEvidenciaTarjeta(clave, input) {
   if (!input.files || !input.files.length) return;
   const archivo = input.files[0];
   input.value = '';
-  guardarEvidenciaImagen(archivo, alimentosEvidenciaTemp.length + 1, clave => {
-    alimentosEvidenciaTemp.push(clave);
-    renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
+  const lista = evidenciaTarjetas[clave] || (evidenciaTarjetas[clave] = []);
+  guardarEvidenciaImagen(archivo, lista.length + 1, c => {
+    lista.push(c);
+    const cont = document.getElementById(`evChips_${clave}`);
+    if (cont) cont.innerHTML = htmlEvidenciaGrid(lista, 'Sin fotos adjuntadas.', clave);
   });
 }
 
-function renderEvidenciaChips(contenedorId, lista) {
-  const cont = document.getElementById(contenedorId);
-  if (!cont) return;
-  cont.innerHTML = htmlEvidenciaGrid(lista, 'Sin fotos adjuntadas.');
+// Quita una foto de la tarjeta (y su imagen guardada, si no la usa otro registro).
+function quitarEvidenciaTarjeta(clave, indice) {
+  const lista = evidenciaTarjetas[clave];
+  if (!lista) return;
+  lista.splice(indice, 1);
+  const cont = document.getElementById(`evChips_${clave}`);
+  if (cont) cont.innerHTML = htmlEvidenciaGrid(lista, 'Sin fotos adjuntadas.', clave);
 }
 
 // §3 PROMPT_GASTOS_JORNADA_SPRINT4: sin Jornada marcada/declarada en la
@@ -1157,6 +1198,7 @@ function renderComidasAlimentos(valores) {
       ${htmlSelectorHoraGasto(`alimHora_${c}`, 'Hora', v.hora)}
       ${htmlCampoGasto('Costo (S/)', `alimCosto_${c}`, ICONO_SOLES_GASTO, 'type="number" step="0.01" oninput="actualizarTopeAlimentos()"', v.costo)}
       <span class="movil-input-contador" id="alimTope_${c}"></span>
+      ${htmlEvidenciaTarjeta(`alim_${c}`)}
     ${CERRAR_TARJETA_GASTO}`;
   }).join('');
   cont.querySelectorAll('.gastos-multi-card.contraida').forEach(actualizarResumenTarjetaGasto);
@@ -1296,7 +1338,7 @@ function guardarGastoAlimentos() {
     jornadaId: jornada ? jornada.id : null,
     codigoJornada: codigoInfo ? codigoInfo.codigo : null,
     hora: e.horaEl.value || '—', costo: e.costo,
-    evidencia: [...alimentosEvidenciaTemp],
+    evidencia: [...(evidenciaTarjetas[`alim_${e.comida}`] || [])],
     sinSustento: false,
     agregadoPosterior: esOlvido,
     justificacion: esOlvido ? justificacionInput.value.trim() : '',
@@ -1323,11 +1365,10 @@ function editarGastoAlimentos(indice) {
 
   alimentosIndiceEditando = indice;
   alimentosComidaEditando = fila.comida;
-  alimentosEvidenciaTemp = [...(fila.evidencia || [])];
+  evidenciaTarjetas = { [`alim_${fila.comida}`]: [...(fila.evidencia || [])] };
   document.getElementById('tituloRegistrarAlimentos').textContent = 'Editar Alimentos';
   document.getElementById('alimentosFecha').value = fechaDDMMYYYYaISO(fila.fecha);
   document.getElementById('alimentosFecha').max = fechaMaxPeriodo();
-  renderEvidenciaChips('alimentosEvidenciaChips', alimentosEvidenciaTemp);
   document.getElementById('alimentosJustificacion').value = fila.justificacion || '';
   limpiarDeclaracionJornada('alimentos');
   actualizarComidasDisponibles();
@@ -1373,7 +1414,6 @@ function eliminarGastoAlimentos(indice) {
 /* =================================================
    MOVILIDAD — valida tope por viaje y por día.
 ================================================= */
-let movilidadEvidenciaTemp = [];
 let movilidadIndiceEditando = null;
 
 let movilidadViajeSeq = 0;
@@ -1383,14 +1423,13 @@ function abrirModalRegistrarMovilidad(fechaISO) {
   const fechaInicial = fechaISO || fechaMaxPeriodo();
   if (!jornadaPermiteRegistrar(fechaInicial)) return;
   movilidadIndiceEditando = null;
-  movilidadEvidenciaTemp = [];
+  evidenciaTarjetas = {};
   tarjetasGastoContraidas.clear();
   document.getElementById('tituloRegistrarMovilidad').textContent = 'Registrar Movilidad';
   document.getElementById('movilidadFecha').value = fechaInicial;
   document.getElementById('movilidadFecha').max = fechaMaxPeriodo();
   document.getElementById('movilidadFecha').min = fechaDDMMYYYYaISO(gastosMovilPeriodo.fechaDesde);
   renderViajesMovilidad([{}]);
-  renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
   document.getElementById('movilidadJustificacion').value = '';
   limpiarDeclaracionJornada('movilidad');
   actualizarJustificacionMovilidad();
@@ -1406,6 +1445,7 @@ function renderViajesMovilidad(valores) {
   if (!cont) return;
   const editando = movilidadIndiceEditando !== null;
   movilidadViajesIds = valores.map(v => v.k || ++movilidadViajeSeq);
+  valores.forEach((v, i) => { if (v.evidencia) evidenciaTarjetas[`mov_${movilidadViajesIds[i]}`] = [...v.evidencia]; });
   cont.innerHTML = valores.map((v, i) => {
     const k = movilidadViajesIds[i];
     const quitar = !editando && valores.length > 1
@@ -1417,6 +1457,7 @@ function renderViajesMovilidad(valores) {
       ${htmlCampoGasto('Motivo', `movV_${k}_motivo`, ICONO_MOTIVO_GASTO, 'type="text"', v.motivo)}
       ${htmlCampoGasto('Horas', `movV_${k}_horas`, ICONO_RELOJ_GASTO, 'type="text" placeholder="Ej. 2 horas"', v.horas)}
       ${htmlCampoGasto('Importe (S/)', `movV_${k}_importe`, ICONO_SOLES_GASTO, 'type="number" step="0.01" oninput="actualizarTopeMovilidad()"', v.importe)}
+      ${htmlEvidenciaTarjeta(`mov_${k}`)}
     ${CERRAR_TARJETA_GASTO}`;
   }).join('');
   cont.querySelectorAll('.gastos-multi-card.contraida').forEach(actualizarResumenTarjetaGasto);
@@ -1444,16 +1485,6 @@ function agregarViajeMovilidad() {
 function quitarViajeMovilidad(k) {
   renderViajesMovilidad(leerViajesMovilidad().filter(v => v.k !== k));
   actualizarTopeMovilidad();
-}
-
-function agregarEvidenciaMovilidad(input) {
-  if (!input.files || !input.files.length) return;
-  const archivo = input.files[0];
-  input.value = '';
-  guardarEvidenciaImagen(archivo, movilidadEvidenciaTemp.length + 1, clave => {
-    movilidadEvidenciaTemp.push(clave);
-    renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
-  });
 }
 
 function totalMovilidadDelDia(fechaISODia) {
@@ -1533,7 +1564,7 @@ function guardarGastoMovilidad() {
       motivo: v.motivo.trim() || '—', importeDia: v.importeNum, totalDia: v.importeNum,
       jornadaId: jornadaMov ? jornadaMov.id : null,
       codigoJornada: codigoInfoMov ? codigoInfoMov.codigo : null,
-      evidencia: [...movilidadEvidenciaTemp], sinSustento: false,
+      evidencia: [...(evidenciaTarjetas[`mov_${v.k}`] || [])], sinSustento: false,
       agregadoPosterior: esOlvido,
       justificacion: esOlvido ? justificacionInput.value.trim() : '',
       agregadoEn: esOlvido ? ((filaPrevia && filaPrevia.agregadoEn) || new Date().toISOString()) : null
@@ -1561,7 +1592,7 @@ function editarGastoMovilidad(indice) {
   if (!puedeEditarGastoEnFecha(fila.fecha)) { mostrarToast('Ya pasó el plazo para editar este gasto: solo se puede ver y descargar.'); return; }
 
   movilidadIndiceEditando = indice;
-  movilidadEvidenciaTemp = [...(fila.evidencia || [])];
+  evidenciaTarjetas = {};
   document.getElementById('tituloRegistrarMovilidad').textContent = 'Editar Movilidad';
   document.getElementById('movilidadFecha').value = fechaDDMMYYYYaISO(fila.fecha);
   document.getElementById('movilidadFecha').max = fechaMaxPeriodo();
@@ -1570,9 +1601,8 @@ function editarGastoMovilidad(indice) {
     partida: fila.distritoPartida === '—' ? '' : fila.distritoPartida,
     destino: fila.distritoDestino === '—' ? '' : fila.distritoDestino,
     motivo: fila.motivo === '—' ? '' : fila.motivo,
-    horas: fila.horas || '', importe: fila.importeDia
+    horas: fila.horas || '', importe: fila.importeDia, evidencia: fila.evidencia || []
   }]);
-  renderEvidenciaChips('movilidadEvidenciaChips', movilidadEvidenciaTemp);
   document.getElementById('movilidadJustificacion').value = fila.justificacion || '';
   limpiarDeclaracionJornada('movilidad');
   actualizarJustificacionMovilidad();

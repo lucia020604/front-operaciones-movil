@@ -46,28 +46,20 @@
       </div>
 
       <!-- FILTROS (mismos que la web: búsqueda y rol; el mes se cambia con las
-           flechas de arriba) + estado de hoy y orden, pensados para el móvil -->
+           flechas de arriba) + estado de hoy, pensados para el móvil -->
       <div class="disp-filtros">
         <div class="movil-input-wrap">
           <span class="input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
           <input type="search" class="movil-input" id="dispBuscar" placeholder="Buscar operario…" oninput="renderDisponibilidadMovil()">
         </div>
-        <div class="disp-filtros-fila">
-          <label class="disp-select">
-            <span>Rol</span>
-            <select class="movil-input" id="dispRolFiltro" onchange="renderDisponibilidadMovil()" aria-label="Rol"></select>
-          </label>
-          <label class="disp-select">
-            <span>Ordenar por</span>
-            <select class="movil-input" id="dispOrden" onchange="renderDisponibilidadMovil()" aria-label="Ordenar por">
-              <option value="nombre">Nombre (A–Z)</option>
-              <option value="disponibles">Más disponibles</option>
-              <option value="programados">Más programados</option>
-              <option value="ausencias">Más ausencias</option>
-            </select>
-          </label>
+        <label class="disp-select">
+          <span>Rol</span>
+          <select class="movil-input" id="dispRolFiltro" onchange="renderDisponibilidadMovil()" aria-label="Rol"></select>
+        </label>
+        <div class="disp-select" id="dispEstadoHoyGrupo">
+          <span>Estado de hoy</span>
+          <div class="disp-chips" id="dispChipsEstado" role="group" aria-label="Estado de hoy"></div>
         </div>
-        <div class="disp-chips" id="dispChipsEstado" role="group" aria-label="Estado de hoy"></div>
         <div class="disp-filtros-pie">
           <span class="reportes-contador" id="dispContador"></span>
           <button type="button" class="disp-limpiar" id="dispLimpiar" onclick="dispLimpiarFiltros()" style="display:none;">Limpiar filtros</button>

@@ -18,7 +18,7 @@ setInterval(dispActualizarHora, 15000);
 const dispHoy = new Date();
 let dispAnio = dispHoy.getFullYear();
 let dispMes = dispHoy.getMonth();
-let dispCal = { id: null, anio: dispAnio, mes: dispMes, diaSel: null };
+let dispCal = { id: null, anio: dispAnio, mes: dispMes, diaSel: null, estadoSel: null };
 let dispEstadoFiltro = 'todos'; // 'todos' o un estado de DISP_ESTADO_LABEL (hoy)
 
 function dispEsc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -50,48 +50,39 @@ function dispElegirEstado(clave) {
   renderDisponibilidadMovil();
 }
 
+// "Hoy" solo tiene sentido en el mes actual: en otro mes no se muestra el
+// estado de hoy (ni su filtro).
+function dispEsMesActual() { return dispAnio === dispHoy.getFullYear() && dispMes === dispHoy.getMonth(); }
+
 function dispISOHoy() { return dispISO(dispHoy.getFullYear(), dispHoy.getMonth(), dispHoy.getDate()); }
 
 function dispFiltrados() {
   const texto = document.getElementById('dispBuscar').value.trim().toLowerCase();
   const rol = document.getElementById('dispRolFiltro').value;
-  const orden = document.getElementById('dispOrden').value;
   const hoyISO = dispISOHoy();
+  const filtraHoy = dispEsMesActual() && dispEstadoFiltro !== 'todos';
 
   const ids = Object.keys(DISP_PERFILES).filter(id => {
     const p = DISP_PERFILES[id];
     if (!`${p.nombre} ${p.apellido}`.toLowerCase().includes(texto)) return false;
     if (rol !== 'todos' && !p.roles.includes(rol)) return false;
-    if (dispEstadoFiltro !== 'todos' && dispEstadoDia(id, hoyISO).estado !== dispEstadoFiltro) return false;
+    if (filtraHoy && dispEstadoDia(id, hoyISO).estado !== dispEstadoFiltro) return false;
     return true;
   });
 
-  const cuenta = id => dispContarEstadosMes(id, dispAnio, dispMes);
-  const nombre = id => `${DISP_PERFILES[id].nombre} ${DISP_PERFILES[id].apellido}`;
-  const porNombre = (a, b) => nombre(a).localeCompare(nombre(b), 'es');
-  const clave = {
-    nombre: porNombre,
-    disponibles: (a, b) => cuenta(b).disponible - cuenta(a).disponible || porNombre(a, b),
-    programados: (a, b) => cuenta(b).programado - cuenta(a).programado || porNombre(a, b),
-    ausencias: (a, b) => {
-      const aus = c => c.vacaciones + c.descanso + c.permiso;
-      return aus(cuenta(b)) - aus(cuenta(a)) || porNombre(a, b);
-    }
-  }[orden] || porNombre;
-  return ids.sort(clave);
+  // Siempre en orden alfabético por nombre.
+  return ids.sort((a, b) => `${DISP_PERFILES[a].nombre} ${DISP_PERFILES[a].apellido}`.localeCompare(`${DISP_PERFILES[b].nombre} ${DISP_PERFILES[b].apellido}`, 'es'));
 }
 
 function dispFiltrosActivos() {
   return !!document.getElementById('dispBuscar').value.trim()
     || document.getElementById('dispRolFiltro').value !== 'todos'
-    || dispEstadoFiltro !== 'todos'
-    || document.getElementById('dispOrden').value !== 'nombre';
+    || (dispEsMesActual() && dispEstadoFiltro !== 'todos');
 }
 
 function dispLimpiarFiltros() {
   document.getElementById('dispBuscar').value = '';
   document.getElementById('dispRolFiltro').value = 'todos';
-  document.getElementById('dispOrden').value = 'nombre';
   dispEstadoFiltro = 'todos';
   renderDisponibilidadMovil();
 }
@@ -99,6 +90,9 @@ function dispLimpiarFiltros() {
 // Chips "Estado de hoy": con el conteo de cuántos operarios hay en cada uno
 // (sobre los que cumplen búsqueda y rol, para que el número sea útil).
 function dispRenderChips() {
+  const grupo = document.getElementById('dispEstadoHoyGrupo');
+  if (grupo) grupo.style.display = dispEsMesActual() ? '' : 'none';
+  if (!dispEsMesActual()) return;
   const texto = document.getElementById('dispBuscar').value.trim().toLowerCase();
   const rol = document.getElementById('dispRolFiltro').value;
   const hoyISO = dispISOHoy();
@@ -122,11 +116,18 @@ function renderDisponibilidadMovil() {
   // Resumen del mes (de los operarios filtrados)
   const tot = { programado: 0, vacaciones: 0, descanso: 0, permiso: 0, disponible: 0 };
   ids.forEach(id => { const c = dispContarEstadosMes(id, dispAnio, dispMes); Object.keys(tot).forEach(k => tot[k] += c[k]); });
-  const kpi = clave => `<div class="disp-kpi" style="--c:${DISP_ESTADO_COLOR[clave]}"><span><i></i>${DISP_ESTADO_LABEL[clave]}</span><strong>${tot[clave]}</strong></div>`;
   const diasMes = new Date(dispAnio, dispMes + 1, 0).getDate();
+  const totalDias = Object.values(tot).reduce((x, y) => x + y, 0) || 1;
+  const fila = clave => `
+    <div class="disp-res-fila" style="--c:${DISP_ESTADO_COLOR[clave]}">
+      <span class="disp-res-etq"><i></i>${DISP_ESTADO_LABEL[clave]}</span>
+      <span class="disp-res-barra"><b style="width:${(tot[clave] / totalDias * 100).toFixed(1)}%"></b></span>
+      <strong>${tot[clave]}</strong>
+    </div>`;
   document.getElementById('dispResumen').innerHTML =
-    `<div class="disp-kpi-total"><strong>${ids.length}</strong><span>operario${ids.length === 1 ? '' : 's'} · ${diasMes} días</span></div>` +
-    `<div class="disp-kpis">${['disponible', 'programado', 'vacaciones', 'descanso', 'permiso'].map(kpi).join('')}</div>`;
+    `<div class="disp-kpi-total"><strong>${ids.length}</strong><span>operario${ids.length === 1 ? '' : 's'} · ${diasMes} días del mes</span></div>` +
+    `<div class="disp-res-lista">${['disponible', 'programado', 'vacaciones', 'descanso', 'permiso'].map(fila).join('')}</div>
+     <p class="disp-res-nota">Días-operario del mes por estado</p>`;
 
   dispRenderChips();
   const lista = document.getElementById('dispLista');
@@ -146,19 +147,26 @@ function renderDisponibilidadMovil() {
     const hoy = dispEstadoDia(id, hoyISO).estado;
     const orden = ['programado', 'vacaciones', 'descanso', 'permiso', 'disponible'];
     const barra = orden.filter(k => c[k]).map(k => `<span style="flex:${c[k]};background:${DISP_ESTADO_COLOR[k]}" title="${DISP_ESTADO_LABEL[k]}: ${c[k]}"></span>`).join('');
-    const cel = (clave, etiqueta) => `<div class="disp-conteo"><strong style="color:${DISP_ESTADO_COLOR[clave]}">${c[clave]}</strong><span>${etiqueta}</span></div>`;
+    const cel = (clave, etiqueta) => `<div class="disp-conteo" style="--c:${DISP_ESTADO_COLOR[clave]}"><strong>${c[clave]}</strong><span><i></i>${etiqueta}</span></div>`;
     return `
       <div class="disp-operario">
         <div class="disp-operario-cab">
           <span class="disp-avatar">${iniciales}</span>
           <div class="disp-operario-id">
             <div class="disp-nombre">${dispEsc(p.nombre)} ${dispEsc(p.apellido)}</div>
-            <div class="disp-roles">${dispRolesHtml(p.roles)}<span class="disp-hoy" style="--c:${DISP_ESTADO_COLOR[hoy]}"><i></i>Hoy: ${DISP_ESTADO_LABEL[hoy]}</span></div>
+            <div class="disp-roles">${dispRolesHtml(p.roles)}</div>
           </div>
         </div>
-        <div class="disp-barra" aria-hidden="true">${barra}</div>
-        <div class="disp-conteos">
-          ${cel('programado', 'Programados')}${cel('vacaciones', 'Vacaciones')}${cel('descanso', 'Desc. médico')}${cel('permiso', 'Permisos')}${cel('disponible', 'Disponibles')}
+        ${dispEsMesActual() ? `<div class="disp-hoy-fila">
+          <span>Estado de hoy</span>
+          <span class="disp-hoy" style="--c:${DISP_ESTADO_COLOR[hoy]}"><i></i>${DISP_ESTADO_LABEL[hoy]}</span>
+        </div>` : ''}
+        <div class="disp-mes-bloque">
+          <div class="disp-mes-titulo">${DISP_MESES[dispMes]} · ${diasMes} días</div>
+          <div class="disp-barra" aria-hidden="true">${barra}</div>
+          <div class="disp-conteos">
+            ${cel('programado', 'Program.')}${cel('vacaciones', 'Vacac.')}${cel('descanso', 'Desc. méd.')}${cel('permiso', 'Permisos')}${cel('disponible', 'Disponib.')}
+          </div>
         </div>
         <button type="button" class="btn-accion btn-cancelar disp-btn-cal" onclick="abrirCalendarioDisp('${id}')">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
@@ -170,7 +178,7 @@ function renderDisponibilidadMovil() {
 
 // ---------- Calendario de un operario (modal) ----------
 function abrirCalendarioDisp(id) {
-  dispCal = { id, anio: dispAnio, mes: dispMes, diaSel: null };
+  dispCal = { id, anio: dispAnio, mes: dispMes, diaSel: null, estadoSel: null };
   const hoy = dispHoy;
   if (hoy.getFullYear() === dispAnio && hoy.getMonth() === dispMes) dispCal.diaSel = hoy.getDate();
   renderCalendarioDisp();
@@ -183,13 +191,20 @@ function dispCalCambiarMes(delta) {
   renderCalendarioDisp();
 }
 
+// Leyenda interactiva: tocar un estado resalta sus días en el calendario
+// (los demás se atenúan); tocarlo otra vez quita el resalte.
+function dispCalElegirEstado(clave) {
+  dispCal.estadoSel = dispCal.estadoSel === clave ? null : clave;
+  renderCalendarioDisp();
+}
+
 function dispCalElegirDia(dia) {
   dispCal.diaSel = dia;
   renderCalendarioDisp();
 }
 
 function renderCalendarioDisp() {
-  const { id, anio, mes, diaSel } = dispCal;
+  const { id, anio, mes, diaSel, estadoSel } = dispCal;
   const p = DISP_PERFILES[id];
   document.getElementById('dispCalNombre').textContent = `${p.nombre} ${p.apellido}`;
   document.getElementById('dispCalMes').textContent = `${DISP_MESES[mes]} ${anio}`;
@@ -202,13 +217,14 @@ function renderCalendarioDisp() {
   for (let d = 1; d <= total; d++) {
     const iso = dispISO(anio, mes, d);
     const e = dispEstadoDia(id, iso).estado;
-    celdas += `<button type="button" class="disp-cal-dia${d === diaSel ? ' sel' : ''}${iso === hoyISO ? ' hoy' : ''}" style="--c:${DISP_ESTADO_COLOR[e]}" onclick="dispCalElegirDia(${d})">${d}</button>`;
+    const resalte = estadoSel ? (e === estadoSel ? ' resaltado' : ' atenuado') : '';
+    celdas += `<button type="button" class="disp-cal-dia${d === diaSel ? ' sel' : ''}${iso === hoyISO ? ' hoy' : ''}${resalte}" style="--c:${DISP_ESTADO_COLOR[e]}" onclick="dispCalElegirDia(${d})">${d}</button>`;
   }
   document.getElementById('dispCalGrid').innerHTML = celdas;
 
   const c = dispContarEstadosMes(id, anio, mes);
   document.getElementById('dispCalLeyenda').innerHTML = Object.keys(DISP_ESTADO_LABEL)
-    .map(k => `<span class="disp-leyenda-item"><i style="background:${DISP_ESTADO_COLOR[k]}"></i>${DISP_ESTADO_LABEL[k]} (${c[k]})</span>`).join('');
+    .map(k => `<button type="button" class="disp-leyenda-item${estadoSel === k ? ' activo' : ''}" style="--c:${DISP_ESTADO_COLOR[k]}" onclick="dispCalElegirEstado('${k}')"><i style="background:${DISP_ESTADO_COLOR[k]}"></i>${DISP_ESTADO_LABEL[k]} (${c[k]})</button>`).join('');
 
   const det = document.getElementById('dispCalDetalle');
   if (!diaSel) { det.innerHTML = '<p class="disp-cal-ayuda">Toca un día para ver el detalle.</p>'; return; }
@@ -218,7 +234,6 @@ function renderCalendarioDisp() {
   const a = r.asignacion;
   det.innerHTML = `
     <div class="disp-det-cab"><span>${dispFormatearFecha(iso)}</span><span class="disp-det-estado" style="--c:${DISP_ESTADO_COLOR[r.estado]}">${DISP_ESTADO_LABEL[r.estado]}</span></div>
-    ${fila('Periodo', r.detalle)}
     ${fila('Motivo', r.motivo)}
-    ${a ? fila('Proyecto', a.proyecto) + fila('Horario', a.horario) + fila('Supervisor', a.supervisor) + fila('Observaciones', a.observaciones) : ''}`;
+    ${a ? fila('Proyecto', a.proyecto) + fila('Horario', a.horario) + fila('Supervisor', a.supervisor) : ''}`;
 }

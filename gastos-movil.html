@@ -249,16 +249,6 @@
             <span class="movil-input-contador" id="alimentosTopeTexto"></span>
           </div>
 
-          <div class="registro-seccion" id="alimentosEvidenciaGroup">
-            <div class="registro-seccion-titulo">Evidencia</div>
-            <input type="file" accept="image/*" capture="environment" id="alimentosEvidenciaInput" hidden onchange="agregarEvidenciaAlimentos(this)">
-            <button type="button" class="btn-accion btn-cancelar gastos-btn-evidencia" onclick="document.getElementById('alimentosEvidenciaInput').click()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              Añadir Evidencia
-            </button>
-            <div class="gastos-evidencia-chips" id="alimentosEvidenciaChips"></div>
-          </div>
-
           <!-- Gasto olvidado (§3): visible solo cuando la jornada de la
                fecha elegida ya cerró — ver actualizarComidasDisponibles. -->
           <!-- Jornada olvidada: si ese día no se marcó la jornada y todavía está
@@ -387,16 +377,6 @@
             <span class="movil-input-contador" id="movilidadTopeTexto"></span>
           </div>
 
-          <div class="registro-seccion" id="movilidadEvidenciaGroup">
-            <div class="registro-seccion-titulo">Evidencia</div>
-            <input type="file" accept="image/*" capture="environment" id="movilidadEvidenciaInput" hidden onchange="agregarEvidenciaMovilidad(this)">
-            <button type="button" class="btn-accion btn-cancelar gastos-btn-evidencia" onclick="document.getElementById('movilidadEvidenciaInput').click()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              Añadir Evidencia
-            </button>
-            <div class="gastos-evidencia-chips" id="movilidadEvidenciaChips"></div>
-          </div>
-
           <!-- Gasto olvidado (§3): visible solo cuando la jornada de la
                fecha elegida ya cerró. -->
           <!-- Jornada olvidada: si ese día no se marcó la jornada y todavía está
@@ -493,6 +473,7 @@
 <script src="JS/data-terminal-muelle.js"></script>
 <script src="JS/data-precintos.js"></script>
 <script src="JS/data-movil.js"></script>
+<script src="JS/data-documentos-movil.js"></script>
 <script src="JS/data-gastos.js"></script>
 <script src="JS/permisos.js"></script>
 <script src="JS/main.js"></script>
