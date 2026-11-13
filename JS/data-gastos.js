@@ -1760,7 +1760,7 @@ function obtenerReportesNoGeneradosOperador(usuario) {
   if (!detMov.grilla.some(f => f.fecha === fechaDD && f.empresa === 'Taxi Seguro Norte')) {
     detMov.grilla.push({
       fecha: fechaDD, empresa: 'Taxi Seguro Norte', distritoPartida: 'Callao', distritoDestino: 'Terminal Norte',
-      motivo: 'Traslado a operación', horas: '1 hora', importeDia: 12.00, totalDia: 12.00,
+      motivo: 'Traslado a operación', importeDia: 12.00, totalDia: 12.00,
       jornadaId: jornada.id, codigoJornada: obtenerOCrearCodigoReporteJornada('Movilidad', jornada.id).codigo,
       evidencia: ['Evidencia 1 (recibo-taxi.jpg)', 'Evidencia 2 (captura-app.png)', 'Evidencia 3 (ruta-gps.png)'], sinSustento: false,
       agregadoPosterior: false, justificacion: '', agregadoEn: null

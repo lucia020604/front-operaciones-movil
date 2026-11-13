@@ -1439,7 +1439,7 @@ function abrirModalRegistrarMovilidad(fechaISO) {
 }
 
 // Un registro de Movilidad admite varios viajes: cada uno es una tarjeta con
-// su empresa, ruta, horas e importe, y cada uno se guarda como su propia fila.
+// su empresa, ruta e importe, y cada uno se guarda como su propia fila.
 function renderViajesMovilidad(valores) {
   const cont = document.getElementById('movilidadViajesLista');
   if (!cont) return;
@@ -1455,7 +1455,6 @@ function renderViajesMovilidad(valores) {
       ${htmlCampoGasto('Distrito de partida', `movV_${k}_partida`, ICONO_LUGAR_GASTO, 'type="text"', v.partida)}
       ${htmlCampoGasto('Distrito de destino', `movV_${k}_destino`, ICONO_LUGAR_GASTO, 'type="text"', v.destino)}
       ${htmlCampoGasto('Motivo', `movV_${k}_motivo`, ICONO_MOTIVO_GASTO, 'type="text"', v.motivo)}
-      ${htmlCampoGasto('Horas', `movV_${k}_horas`, ICONO_RELOJ_GASTO, 'type="text" placeholder="Ej. 2 horas"', v.horas)}
       ${htmlCampoGasto('Importe (S/)', `movV_${k}_importe`, ICONO_SOLES_GASTO, 'type="number" step="0.01" oninput="actualizarTopeMovilidad()"', v.importe)}
       ${htmlEvidenciaTarjeta(`mov_${k}`)}
     ${CERRAR_TARJETA_GASTO}`;
@@ -1469,7 +1468,7 @@ function leerViajesMovilidad() {
   const val = (k, campo) => { const el = document.getElementById(`movV_${k}_${campo}`); return el ? el.value : ''; };
   return movilidadViajesIds.map(k => ({
     k, empresa: val(k, 'empresa'), partida: val(k, 'partida'), destino: val(k, 'destino'),
-    motivo: val(k, 'motivo'), horas: val(k, 'horas'), importe: val(k, 'importe')
+    motivo: val(k, 'motivo'), importe: val(k, 'importe')
   }));
 }
 
@@ -1569,7 +1568,6 @@ function guardarGastoMovilidad() {
       justificacion: esOlvido ? justificacionInput.value.trim() : '',
       agregadoEn: esOlvido ? ((filaPrevia && filaPrevia.agregadoEn) || new Date().toISOString()) : null
     };
-    if (v.horas.trim()) fila.horas = v.horas.trim();
     return fila;
   });
 
@@ -1601,7 +1599,7 @@ function editarGastoMovilidad(indice) {
     partida: fila.distritoPartida === '—' ? '' : fila.distritoPartida,
     destino: fila.distritoDestino === '—' ? '' : fila.distritoDestino,
     motivo: fila.motivo === '—' ? '' : fila.motivo,
-    horas: fila.horas || '', importe: fila.importeDia, evidencia: fila.evidencia || []
+    importe: fila.importeDia, evidencia: fila.evidencia || []
   }]);
   document.getElementById('movilidadJustificacion').value = fila.justificacion || '';
   limpiarDeclaracionJornada('movilidad');
