@@ -36,14 +36,10 @@ const ITEMS_NAV_MOVIL = [
     icono: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
   },
   {
-    // Dashboard de Cabotaje (Inicio, web): módulo propio, solo para Administrativos.
-    id: 'cabotaje', href: 'cabotaje-movil.html', etiqueta: 'Cabotaje', soloAdministrativo: true,
-    icono: '<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/>'
-  },
-  {
-    // Dashboard de Nominación (Inicio, web): módulo propio, solo para Administrativos.
-    id: 'nominacion', href: 'nominacion-movil.html', etiqueta: 'Nominación', soloAdministrativo: true,
-    icono: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14,2 14,8 20,8"/><path d="m9 15 2 2 4-4"/>'
+    // Dashboard (Inicio de la web): reúne Cabotaje y Nominación en un solo módulo;
+    // las dos pantallas se alternan con el selector de arriba. Solo Administrativos.
+    id: 'dashboard', href: 'cabotaje-movil.html', etiqueta: 'Dashboard', soloAdministrativo: true,
+    icono: '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>'
   },
   {
     id: 'perfil', href: 'perfil-movil.html', etiqueta: 'Perfil',
@@ -72,8 +68,8 @@ function renderNavInferiorMovil(activo) {
   // "Personal" (Disponibilidad del Personal) solo lo ven los Administrativos.
   const esAdmin = typeof esUsuarioAdministrativoMovil === 'function' ? esUsuarioAdministrativoMovil() : false;
   const items = ITEMS_NAV_MOVIL.filter(it => !it.soloAdministrativo || esAdmin);
-  // Con más de 5 ítems (administradores) solo el activo muestra su nombre.
-  cont.classList.toggle('movil-bottomnav--compacto', items.length > 5);
+  // Con más de 6 ítems solo el activo muestra su nombre.
+  cont.classList.toggle('movil-bottomnav--compacto', items.length > 6);
   cont.innerHTML = items.map(it => `
     <a class="movil-nav-item${it.id === activo ? ' activo' : ''}" href="${it.href}" title="${it.etiqueta}" aria-label="${it.etiqueta}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${it.icono}</svg>
