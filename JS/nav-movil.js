@@ -68,8 +68,8 @@ function renderNavInferiorMovil(activo) {
   // "Personal" (Disponibilidad del Personal) solo lo ven los Administrativos.
   const esAdmin = typeof esUsuarioAdministrativoMovil === 'function' ? esUsuarioAdministrativoMovil() : false;
   const items = ITEMS_NAV_MOVIL.filter(it => !it.soloAdministrativo || esAdmin);
-  // Con más de 6 ítems solo el activo muestra su nombre.
-  cont.classList.toggle('movil-bottomnav--compacto', items.length > 6);
+  // Solo el módulo activo (el que se abrió) muestra su nombre; los demás, solo el icono.
+  cont.classList.add('movil-bottomnav--compacto');
   cont.innerHTML = items.map(it => `
     <a class="movil-nav-item${it.id === activo ? ' activo' : ''}" href="${it.href}" title="${it.etiqueta}" aria-label="${it.etiqueta}">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${it.icono}</svg>
