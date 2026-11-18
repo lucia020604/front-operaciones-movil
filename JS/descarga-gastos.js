@@ -512,16 +512,18 @@ function tieneFilasGastoEnFecha(usuario, tipo, fechaISO) {
 }
 
 // { html, tipos } con una hoja por tipo que tenga filas ese día, o null.
-function construirHTMLReporteJornadaGastos(usuario, fechaISO) {
+// "soloTipo" (opcional): arma únicamente el reporte de ese tipo (Alimentos o
+// Movilidad) — es lo que usa la descarga por reporte del móvil.
+function construirHTMLReporteJornadaGastos(usuario, fechaISO, soloTipo) {
   const htmls = [], tipos = [];
-  ['Alimentos', 'Movilidad', 'Días a Bordo'].forEach(tipo => {
+  ['Alimentos', 'Movilidad', 'Días a Bordo'].filter(t => !soloTipo || t === soloTipo).forEach(tipo => {
     if (!tieneFilasGastoEnFecha(usuario, tipo, fechaISO)) return;
     const d = prepararDescargaGastos({ usuario, tipo, desde: fechaISO, hasta: fechaISO });
     if (!d) return;
     htmls.push(construirHTMLReporteGastos(d, false));
     tipos.push(tipo);
   });
-  if (!htmls.length) { mostrarToast('Esta jornada no tiene registros para descargar.'); return null; }
+  if (!htmls.length) { mostrarToast('Este reporte no tiene registros para descargar.'); return null; }
   const hoja = h => h.slice(h.indexOf('<div class="hoja">'), h.lastIndexOf('</body>'));
   const resto = htmls.slice(1).map(h => `<div style="page-break-before:always;"></div>${hoja(h)}`).join('');
   return { html: htmls[0].replace('</body></html>', resto + '</body></html>'), tipos };

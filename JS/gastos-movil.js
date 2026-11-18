@@ -1834,7 +1834,17 @@ function camposAcordeonReporte(tipo, f) {
 // Búsqueda por código/PER/cliente, rango de fechas y tipo (incl. "Todos") se
 // aplican antes de agrupar.
 const DESCARGAS_JORNADA_GASTOS = tgCargarCatalogo('descargasJornadaGastosData', {});
-function claveDescargaJornada(fechaISO) { return `${gastosMovilUsuario}|${fechaISO}`; }
+// La descarga es POR REPORTE (Alimentos / Movilidad) de cada jornada.
+function claveDescargaReporte(fechaISO, tipo) { return `${gastosMovilUsuario}|${fechaISO}|${tipo}`; }
+
+// Registro de descarga de un reporte; tolera el formato anterior (una sola
+// marca por jornada con la lista de tipos descargados).
+function descargaDeReporte(fechaISO, tipo) {
+  const propio = DESCARGAS_JORNADA_GASTOS[claveDescargaReporte(fechaISO, tipo)];
+  if (propio) return propio;
+  const anterior = DESCARGAS_JORNADA_GASTOS[`${gastosMovilUsuario}|${fechaISO}`];
+  return anterior && (anterior.tipos || []).includes(tipo) ? anterior : null;
+}
 
 function renderReportesAccordion() {
   if (!hayPantallaReportes()) return;
@@ -1906,36 +1916,44 @@ function renderReportesAccordion() {
       totalJornada += totalTipo;
       const codigo = filasTipo[0]._codigo || 'Sin registrar';
       const n = filasTipo.length;
+      // Alimentos y Movilidad se descargan por separado, cada uno con su
+      // estado ("Descargado" con fecha y hora, o "Sin descargar").
+      let descarga = '';
+      if (tipo !== 'Días a Bordo') {
+        const desc = descargaDeReporte(fechaISO, tipo);
+        descarga = `
+        <div class="reportes-tipo-descarga">
+          ${desc
+            ? `<span class="reportes-estado-descarga ok" title="Descargado el ${fmtDescarga(desc.fecha)}">Descargado ${fmtDescarga(desc.fecha)}</span>`
+            : '<span class="reportes-estado-descarga">Sin descargar</span>'}
+          <button type="button" class="btn-accion btn-guardar gastos-btn-registrar" onclick="iniciarDescargaReporte('${fechaISO}', '${tipo}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ${desc ? 'Descargar de nuevo' : 'Descargar PDF'}
+          </button>
+        </div>`;
+      }
       return `
-        <button type="button" class="reportes-tipo-fila" onclick="abrirDetalleReporte('${tipo}', '${fecha}')">
-          <span class="reportes-tipo-info">
-            <span class="reportes-tipo-nombre">${tipo}</span>
-            <span class="reportes-tipo-meta">${codigo} · ${n} registro${n === 1 ? '' : 's'}</span>
-          </span>
-          <span class="reportes-tipo-total">S/ ${totalTipo.toFixed(2)}</span>
-          <svg class="reportes-tipo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
-        </button>`;
+        <div class="reportes-tipo-bloque">
+          <button type="button" class="reportes-tipo-fila" onclick="abrirDetalleReporte('${tipo}', '${fecha}')">
+            <span class="reportes-tipo-info">
+              <span class="reportes-tipo-nombre">${tipo}</span>
+              <span class="reportes-tipo-meta">${codigo} · ${n} registro${n === 1 ? '' : 's'}</span>
+            </span>
+            <span class="reportes-tipo-total">S/ ${totalTipo.toFixed(2)}</span>
+            <svg class="reportes-tipo-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m9 18 6-6-6-6"/></svg>
+          </button>${descarga}
+        </div>`;
     }).join('');
-
-    const desc = DESCARGAS_JORNADA_GASTOS[claveDescargaJornada(fechaISO)];
-    const estadoDescarga = desc
-      ? `<span class="badge badge-vigente" title="Descargado el ${fmtDescarga(desc.fecha)}">Descargado ${fmtDescarga(desc.fecha)}</span>`
-      : '<span class="badge badge-gris">Sin descargar</span>';
 
     return `
       <div class="reportes-dia-grupo">
         <div class="reportes-dia-header">
           <span class="reportes-dia-fecha">${fecha}</span>
-          ${estadoDescarga}
         </div>
         <div class="reportes-dia-operaciones">${textoOperacionesInvolucradas(operaciones)} · ${precintosDia.length ? `Precintos usados (${precintosDia.length})` : 'Sin precintos usados'}</div>
         ${secciones}
         <div class="reportes-dia-pie">
           <span class="reportes-dia-total">Total jornada: S/ ${totalJornada.toFixed(2)}</span>
-          <button type="button" class="btn-accion btn-guardar gastos-btn-registrar" onclick="iniciarDescargaJornada('${fechaISO}')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            ${desc ? 'Descargar de nuevo' : 'Descargar PDF'}
-          </button>
         </div>
       </div>`;
   }).join('');
@@ -1973,50 +1991,26 @@ function abrirDetalleReporte(tipo, fecha) {
 }
 
 /* =================================================
-   DESCARGA DE LA JORNADA — "se firman de manera automática validando su
-   huella": se simula la validación biométrica (setTimeout + estado de
-   carga, mismo patrón que la geolocalización simulada de Operaciones, sin
-   hardware real) antes de generar el PDF. El PDF sale IDÉNTICO al que arma
-   la web para ese mismo día (mismos builders de descarga-gastos.js: misma
-   planilla y marca de agua de "descargado desde este sistema"). Al terminar
-   la jornada queda marcada como "Descargado" con fecha y hora.
+   DESCARGA POR REPORTE — genera el PDF de un reporte (Alimentos o Movilidad)
+   de una jornada, IDÉNTICO al que arma la web para ese mismo día (mismos
+   builders de descarga-gastos.js: misma planilla y marca de agua de
+   "descargado desde este sistema"). Al terminar, ese reporte queda marcado
+   como "Descargado" con fecha y hora.
 ================================================= */
-let reportesDescargaPendiente = null;
-
-function iniciarDescargaJornada(fechaISO) {
+function iniciarDescargaReporte(fechaISO, tipo) {
   if (!gastosMovilPeriodo) return;
-  reportesDescargaPendiente = { fechaISO };
-  document.getElementById('huellaEstadoTexto').textContent = 'Coloca tu huella en el sensor…';
-  document.getElementById('huellaIcono').classList.remove('huella-ok');
-  abrirModal('modalValidarHuella');
-
-  setTimeout(() => {
-    const elTexto = document.getElementById('huellaEstadoTexto');
-    const elIcono = document.getElementById('huellaIcono');
-    if (elTexto) elTexto.textContent = 'Huella validada. Firmando y generando el reporte…';
-    if (elIcono) elIcono.classList.add('huella-ok');
-    setTimeout(confirmarDescargaConHuella, 700);
-  }, 1300);
-}
-
-function confirmarDescargaConHuella() {
-  if (!reportesDescargaPendiente) return;
-  const { fechaISO } = reportesDescargaPendiente;
-  reportesDescargaPendiente = null;
-  cerrarModal('modalValidarHuella');
-
-  const reporte = construirHTMLReporteJornadaGastos(gastosMovilUsuario, fechaISO);
+  const reporte = construirHTMLReporteJornadaGastos(gastosMovilUsuario, fechaISO, tipo);
   if (!reporte) return;
   abrirVentanaHTMLGastos(reporte.html, { imprimir: true });
 
-  // Misma marca de "última descarga" que ve la web, por tipo y para ese día.
-  reporte.tipos.forEach(tipo => registrarUltimaDescargaGastos(gastosMovilUsuario, tipo, fechaISO, fechaISO));
-  DESCARGAS_JORNADA_GASTOS[claveDescargaJornada(fechaISO)] = { fecha: new Date().toISOString(), tipos: reporte.tipos };
+  // Misma marca de "última descarga" que ve la web, para ese tipo y ese día.
+  registrarUltimaDescargaGastos(gastosMovilUsuario, tipo, fechaISO, fechaISO);
+  DESCARGAS_JORNADA_GASTOS[claveDescargaReporte(fechaISO, tipo)] = { fecha: new Date().toISOString() };
   tgGuardarCatalogo('descargasJornadaGastosData', DESCARGAS_JORNADA_GASTOS);
   guardarEstadoGastos();
 
   renderReportesAccordion();
-  mostrarModalConfirmacionMovil(`Reporte de la jornada ${fechaISOaDDMMYYYY(fechaISO)} firmado con tu huella y descargado.`);
+  mostrarModalConfirmacionMovil(`Reporte de ${tipo} del ${fechaISOaDDMMYYYY(fechaISO)} descargado.`);
 }
 
 document.addEventListener('DOMContentLoaded', inicializarGastosMovil);

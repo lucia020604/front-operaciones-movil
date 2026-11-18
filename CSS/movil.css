@@ -1116,12 +1116,14 @@ select.movil-input {
   line-height: 1.15;
   background: rgba(0, 180, 216, .1);
   border-radius: 5px;
-  padding: 3px 5px;
+  padding: 6px 10px;
   max-width: 100%;
-  width: fit-content;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .op-card-fechas > span {
+  flex: 1;
   white-space: nowrap;
 }
 
@@ -1140,7 +1142,7 @@ select.movil-input {
 
 .op-card-fecha-valor {
   color: var(--cyan-dark);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -2934,3 +2936,10 @@ select.movil-input {
 /* Dashboard: selector Cabotaje | Nominación */
 .inicio-switch { margin-bottom: 12px; }
 a.movil-tab-toggle-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* Descarga por reporte (Alimentos / Movilidad) dentro de la tarjeta de la jornada */
+.reportes-tipo-bloque { border-bottom: 1px solid var(--gray-100); }
+.reportes-tipo-bloque .reportes-tipo-fila { border-bottom: 0; padding-bottom: 6px; }
+.reportes-tipo-descarga { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 12px 10px; }
+.reportes-estado-descarga { font-size: 9.5px; font-weight: 600; color: var(--gray-500); }
+.reportes-estado-descarga.ok { color: #166534; }
